@@ -1,0 +1,268 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum UserRole {
+  CUSTOMER
+  RIDER
+  RESTAURANT
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY_FOR_PICKUP
+  PICKED_UP
+  DELIVERED
+  CANCELLED
+}
+
+enum RiderStatus {
+  OFFLINE
+  ONLINE
+  BUSY
+}
+
+// Models
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  phone       String?   @unique
+  password    String
+  firstName   String
+  lastName    String
+  avatar      String?
+  role        UserRole
+  status      UserStatus @default(ACTIVE)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  customer    Customer?
+  rider       Rider?
+  restaurant  Restaurant?
+  
+  @@map("users")
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Customer specific fields
+  addresses CustomerAddress[]
+  orders    Order[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  label       String   // บ้าน, ที่ทำงาน, อื่นๆ
+  address     String
+  latitude    Float?
+  longitude   Float?
+  isDefault   Boolean  @default(false)
+  
+  orders      Order[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("customer_addresses")
+}
+
+model Rider {
+  id            String      @id @default(cuid())
+  userId        String      @unique
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Rider specific fields
+  licenseNumber String?
+  vehicleType   String?     // รถจักรยานยนต์, รถยนต์, จักรยาน
+  vehicleNumber String?
+  bankAccount   String?
+  bankName      String?
+  status        RiderStatus @default(OFFLINE)
+  currentLat    Float?
+  currentLng    Float?
+  rating        Float       @default(5.0)
+  totalRides    Int         @default(0)
+  
+  // Relations
+  orders        Order[]
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  @@map("riders")
+}
+
+model Restaurant {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Restaurant specific fields
+  name        String
+  description String?
+  address     String
+  latitude    Float?
+  longitude   Float?
+  phone       String?
+  image       String?
+  rating      Float    @default(5.0)
+  isOpen      Boolean  @default(true)
+  openTime    String?  // HH:mm format
+  closeTime   String?  // HH:mm format
+  
+  // Relations
+  categories  Category[]
+  menuItems   MenuItem[]
+  orders      Order[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("restaurants")
+}
+
+model Category {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  
+  name         String
+  description  String?
+  image        String?
+  order        Int        @default(0)
+  
+  // Relations
+  menuItems    MenuItem[]
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  @@map("categories")
+}
+
+model MenuItem {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  categoryId   String?
+  category     Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  
+  name         String
+  description  String?
+  price        Float
+  image        String?
+  isAvailable  Boolean    @default(true)
+  
+  // Relations
+  orderItems   OrderItem[]
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  @@map("menu_items")
+}
+
+model Order {
+  id                String          @id @default(cuid())
+  orderNumber       String          @unique
+  customerId        String
+  customer          Customer        @relation(fields: [customerId], references: [id])
+  restaurantId      String
+  restaurant        Restaurant      @relation(fields: [restaurantId], references: [id])
+  riderId           String?
+  rider             Rider?          @relation(fields: [riderId], references: [id])
+  addressId         String
+  address           CustomerAddress @relation(fields: [addressId], references: [id])
+  
+  status            OrderStatus     @default(PENDING)
+  subtotal          Float
+  deliveryFee       Float           @default(0)
+  serviceFee        Float           @default(0)
+  total             Float
+  
+  specialInstructions String?
+  estimatedDelivery   DateTime?
+  confirmedAt         DateTime?
+  preparedAt          DateTime?
+  pickedUpAt          DateTime?
+  deliveredAt         DateTime?
+  cancelledAt         DateTime?
+  
+  // Relations
+  orderItems        OrderItem[]
+  notifications     Notification[]
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  
+  quantity   Int
+  price      Float    // ราคาต่อชิ้นขณะสั่ง
+  total      Float    // quantity * price
+  notes      String?  // หมายเหตุพิเศษ เช่น ไม่ใส่ผัก
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@map("order_items")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  userId    String   // ผู้รับการแจ้งเตือน
+  title     String
+  message   String
+  type      String   // ORDER_UPDATE, RIDER_ASSIGNED, etc.
+  isRead    Boolean  @default(false)
+  data      Json?    // ข้อมูลเพิ่มเติม
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("notifications")
+}
