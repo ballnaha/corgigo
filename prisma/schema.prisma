@@ -43,6 +43,13 @@ enum RiderStatus {
   BUSY
 }
 
+enum RestaurantStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
 // Models
 model User {
   id          String    @id @default(cuid())
@@ -163,6 +170,14 @@ model Restaurant {
   isOpen      Boolean  @default(true)
   openTime    String?  // HH:mm format
   closeTime   String?  // HH:mm format
+  status      RestaurantStatus @default(PENDING)
+  
+  // Approval fields
+  approvedAt  DateTime?
+  approvedBy  String?  // Admin user ID who approved
+  rejectedAt  DateTime?
+  rejectedBy  String?  // Admin user ID who rejected
+  rejectReason String?
   
   // Relations
   categories  Category[]

@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: 'ขนาดไฟล์ต้องไม่เกิน 5MB' }, { status: 400 });
+    if (file.size > 15 * 1024 * 1024) {
+      return NextResponse.json({ error: 'ขนาดไฟล์ต้องไม่เกิน 15MB' }, { status: 400 });
     }
 
     // Create unique filename

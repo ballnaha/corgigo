@@ -74,6 +74,9 @@ export enum RiderStatus {
   BUSY = 'BUSY'
 }
 
+// Restaurant Status Enum
+export type RestaurantStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+
 // Restaurant Types
 export interface Restaurant {
   id: string;
@@ -90,6 +93,12 @@ export interface Restaurant {
   isOpen: boolean;
   openTime?: string;
   closeTime?: string;
+  status: RestaurantStatus;
+  approvedAt?: Date;
+  approvedBy?: string;
+  rejectedAt?: Date;
+  rejectedBy?: string;
+  rejectReason?: string;
   categories: Category[];
   menuItems: MenuItem[];
   orders: Order[];

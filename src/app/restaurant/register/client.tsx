@@ -263,9 +263,9 @@ export default function RegisterRestaurantClient() {
         // Refresh session เพื่อโหลดข้อมูล restaurant ใหม่
         await updateSession();
         
-        // หน่วงเวลาเล็กน้อยแล้วไปหน้าร้านอาหาร
+        // หน่วงเวลาเล็กน้อยแล้วไปหน้ารอการตรวจสอบ
         setTimeout(() => {
-          router.push('/restaurant');
+          router.push('/restaurant/pending');
         }, 2000);
       } else {
         setSnackbar({

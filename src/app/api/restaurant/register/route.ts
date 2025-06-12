@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // สร้าง restaurant profile
+      // สร้าง restaurant profile with PENDING status
       const restaurant = await tx.restaurant.create({
         data: {
           userId,
@@ -87,8 +87,9 @@ export async function POST(request: NextRequest) {
           closeTime: closeTime || '21:00',
           latitude: latitude || null,
           longitude: longitude || null,
-          isOpen: true,
+          isOpen: false, // ปิดร้านจนกว่าจะได้รับการอนุมัติ
           rating: 5.0,
+          status: 'PENDING', // สถานะรอการตรวจสอบ
         },
       });
 

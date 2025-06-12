@@ -214,10 +214,10 @@ export default function SimpleProfileClient() {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > 15 * 1024 * 1024) {
       setSnackbar({ 
         open: true, 
-        message: 'ขนาดไฟล์ต้องไม่เกิน 10MB', 
+        message: 'ขนาดไฟล์ต้องไม่เกิน 15MB', 
         severity: 'error' 
       });
       return;
