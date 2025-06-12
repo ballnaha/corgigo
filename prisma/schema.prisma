@@ -52,17 +52,38 @@ model User {
   firstName   String
   lastName    String
   avatar      String?
-  role        UserRole
+  
+  // Location fields for delivery
+  latitude    Float?    // ตำแหน่ง lat สำหรับส่งอาหาร
+  longitude   Float?    // ตำแหน่ง lng สำหรับส่งอาหาร
+  
+  // Multi-role support
+  primaryRole UserRole  @default(CUSTOMER) // หลัก role ที่ใช้ login
+  
   status      UserStatus @default(ACTIVE)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  // Relations
+  // Relations - ทุกคนสามารถมีได้ทุก role
   customer    Customer?
   rider       Rider?
   restaurant  Restaurant?
+  userRoles   UserRoles[] // relationship กับ roles ที่มี
   
   @@map("users")
+}
+
+// Table สำหรับเก็บ roles ของแต่ละ user
+model UserRoles {
+  id     String   @id @default(cuid())
+  userId String
+  role   UserRole
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, role])
+  @@map("user_roles")
 }
 
 model Customer {

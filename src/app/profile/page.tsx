@@ -1,22 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CircularProgress, Box } from '@mui/material';
+import SimpleProfileClient from './simple-client';
 
-interface NoSSRProps {
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
-}
-
-export default function NoSSR({ children, fallback }: NoSSRProps) {
-  const [mounted, setMounted] = useState(false);
+export default function ProfilePage() {
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    setIsClient(true);
   }, []);
 
-  if (!mounted) {
-    return fallback || (
+  if (!isClient) {
+    return (
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'center', 
@@ -29,5 +25,5 @@ export default function NoSSR({ children, fallback }: NoSSRProps) {
     );
   }
 
-  return <>{children}</>;
+  return <SimpleProfileClient />;
 } 

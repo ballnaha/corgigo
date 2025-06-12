@@ -4,15 +4,15 @@ const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#FFD700', // เหลือง
-      light: '#FFED4A',
-      dark: '#E6C200',
+      main: '#F8A66E',
+      light: '#F8A66E',
+      dark: '#F8A66E',
       contrastText: '#000000',
     },
     secondary: {
-      main: '#000000', // ดำ
+      main: '#000000',
       dark: '#1A1A1A',
-      contrastText: '#FFD700',
+      contrastText: '#F8A66E',
     },
     background: {
       default: '#FAFAFA', // ขาวอ่อน

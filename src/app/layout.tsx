@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Prompt } from "next/font/google";
 import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
+import ThemeProvider from "@/components/ThemeProvider";
 
 const prompt = Prompt({
   subsets: ["latin", "thai"],
@@ -21,10 +22,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th">
+      <head>
+        <meta name="emotion-insertion-point" content="" />
+      </head>
       <body className={prompt.className}>
-        <SessionProvider>
-          {children}
-        </SessionProvider>
+        <ThemeProvider>
+          <SessionProvider>
+            {children}
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -7,22 +7,26 @@ declare module 'next-auth' {
       id: string;
       email: string;
       name: string;
-      role: 'CUSTOMER' | 'RIDER' | 'RESTAURANT' | 'ADMIN';
+      primaryRole: 'CUSTOMER' | 'RIDER' | 'RESTAURANT' | 'ADMIN';
+      roles: ('CUSTOMER' | 'RIDER' | 'RESTAURANT' | 'ADMIN')[];
+      currentRole?: 'CUSTOMER' | 'RIDER' | 'RESTAURANT' | 'ADMIN';
       status: string;
-      avatar?: string;
+      avatar?: string | null;
       customer?: Customer;
       rider?: Rider;
       restaurant?: Restaurant;
     };
+    lastRefresh?: number;
   }
 
   interface User {
     id: string;
     email: string;
     name: string;
-    role: 'CUSTOMER' | 'RIDER' | 'RESTAURANT' | 'ADMIN';
+    primaryRole: 'CUSTOMER' | 'RIDER' | 'RESTAURANT' | 'ADMIN';
+    roles: ('CUSTOMER' | 'RIDER' | 'RESTAURANT' | 'ADMIN')[];
     status: string;
-    avatar?: string;
+    avatar?: string | null;
     customer?: Customer;
     rider?: Rider;
     restaurant?: Restaurant;
@@ -31,10 +35,13 @@ declare module 'next-auth' {
 
 declare module 'next-auth/jwt' {
   interface JWT {
-    role: 'CUSTOMER' | 'RIDER' | 'RESTAURANT' | 'ADMIN';
+    primaryRole: 'CUSTOMER' | 'RIDER' | 'RESTAURANT' | 'ADMIN';
+    roles: ('CUSTOMER' | 'RIDER' | 'RESTAURANT' | 'ADMIN')[];
+    currentRole?: 'CUSTOMER' | 'RIDER' | 'RESTAURANT' | 'ADMIN';
     status: string;
     customer?: Customer;
     rider?: Rider;
     restaurant?: Restaurant;
+    lastRefresh?: number;
   }
 } 

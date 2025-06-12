@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Drawer,
   List,
@@ -32,6 +33,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
+  const router = useRouter();
   const menuItems = [
     { text: 'หน้าแรก', icon: <Home />, path: '/' },
     { text: 'ร้านอาหาร', icon: <Restaurant />, path: '/restaurants' },
@@ -56,13 +58,14 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       sx={{
         '& .MuiDrawer-paper': {
           width: 280,
-          bgcolor: 'white',
+          bgcolor: '#382c30',
           borderTopRightRadius: 20,
           borderBottomRightRadius: 20,
+          color: 'white',
         },
       }}
     >
-      <Box sx={{ p: 3, bgcolor: '#FFD700', color: 'black' }}>
+      <Box sx={{ p: 3, bgcolor: 'linear-gradient(135deg, #F8A66E 0%, #F35C76 100%)', color: 'white' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Avatar 
             src="/api/placeholder/50/50" 
@@ -83,17 +86,20 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
-              onClick={onClose}
+              onClick={() => {
+                router.push(item.path);
+                onClose();
+              }}
               sx={{
                 borderRadius: 2,
                 mx: 1,
                 my: 0.5,
                 '&:hover': {
-                  bgcolor: '#FFF8DC',
+                  bgcolor: 'rgba(248, 166, 110, 0.1)',
                 },
               }}
             >
-              <ListItemIcon sx={{ color: '#FFD700', minWidth: 40 }}>
+              <ListItemIcon sx={{ color: '#F8A66E', minWidth: 40 }}>
                 {item.icon}
               </ListItemIcon>
               <ListItemText 
@@ -101,6 +107,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 primaryTypographyProps={{
                   fontWeight: 500,
                   fontSize: '0.95rem',
+                  color: 'white',
                 }}
               />
             </ListItemButton>
@@ -114,17 +121,20 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         {bottomItems.map((item) => (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
-              onClick={onClose}
+              onClick={() => {
+                router.push(item.path);
+                onClose();
+              }}
               sx={{
                 borderRadius: 2,
                 mx: 1,
                 my: 0.5,
                 '&:hover': {
-                  bgcolor: '#FFF8DC',
+                  bgcolor: 'rgba(248, 166, 110, 0.1)',
                 },
               }}
             >
-              <ListItemIcon sx={{ color: 'gray', minWidth: 40 }}>
+              <ListItemIcon sx={{ color: '#F35C76', minWidth: 40 }}>
                 {item.icon}
               </ListItemIcon>
               <ListItemText 
@@ -132,6 +142,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 primaryTypographyProps={{
                   fontWeight: 500,
                   fontSize: '0.95rem',
+                  color: 'white',
                 }}
               />
             </ListItemButton>

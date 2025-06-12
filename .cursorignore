@@ -1,0 +1,9 @@
+# Cursor ignore file
+# Remove .env from being ignored
+!.env
+ 
+# Keep other common ignores
+node_modules/
+.git/
+*.log
+.DS_Store 

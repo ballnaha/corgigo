@@ -10,34 +10,14 @@ export async function POST(request: NextRequest) {
       password, 
       firstName, 
       lastName, 
-      phone, 
-      role,
-      // Restaurant specific fields
-      restaurantName,
-      restaurantDescription,
-      restaurantAddress,
-      restaurantPhone,
-      openTime,
-      closeTime,
-      // Rider specific fields
-      licenseNumber,
-      vehicleType,
-      vehicleNumber,
-      bankAccount,
-      bankName,
+      phone,
+      role = 'CUSTOMER',
     } = body;
 
     // Validation
-    if (!email || !password || !firstName || !lastName || !role) {
+    if (!email || !password || !firstName || !lastName) {
       return NextResponse.json(
         { error: 'กรุณากรอกข้อมูลให้ครบถ้วน' },
-        { status: 400 }
-      );
-    }
-
-    if (!['CUSTOMER', 'RIDER', 'RESTAURANT', 'ADMIN'].includes(role)) {
-      return NextResponse.json(
-        { error: 'ประเภทผู้ใช้ไม่ถูกต้อง' },
         { status: 400 }
       );
     }
@@ -72,8 +52,8 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user with transaction
-    const result = await prisma.$transaction(async (tx: any) => {
-      // Create base user
+    const result = await prisma.$transaction(async (tx) => {
+      // Create base user with requested role as primary role
       const user = await tx.user.create({
         data: {
           email,
@@ -81,57 +61,44 @@ export async function POST(request: NextRequest) {
           firstName,
           lastName,
           phone,
-          role,
+          primaryRole: role as any,
           status: 'ACTIVE',
         },
       });
 
-      // Create role-specific records
-      switch (role) {
-        case 'CUSTOMER':
-          await tx.customer.create({
-            data: {
-              userId: user.id,
-            },
-          });
-          break;
+      // สร้าง customer role เสมอ (ทุกคนเป็น customer ได้)
+      await tx.userRoles.create({
+        data: {
+          userId: user.id,
+          role: 'CUSTOMER',
+        },
+      });
 
-        case 'RIDER':
-          await tx.rider.create({
-            data: {
-              userId: user.id,
-              licenseNumber,
-              vehicleType,
-              vehicleNumber,
-              bankAccount,
-              bankName,
-              status: 'OFFLINE',
-            },
-          });
-          break;
+      // สร้าง customer profile เสมอ
+      await tx.customer.create({
+        data: {
+          userId: user.id,
+        },
+      });
 
-        case 'RESTAURANT':
-          if (!restaurantName || !restaurantAddress) {
-            throw new Error('กรุณากรอกชื่อร้านและที่อยู่ร้าน');
-          }
-          
-          await tx.restaurant.create({
-            data: {
-              userId: user.id,
-              name: restaurantName,
-              description: restaurantDescription,
-              address: restaurantAddress,
-              phone: restaurantPhone || phone,
-              openTime,
-              closeTime,
-              isOpen: false, // ต้องรออนุมัติก่อน
-            },
-          });
-          break;
+      // ถ้า role เป็น RESTAURANT ให้สร้าง restaurant role และ profile ด้วย
+      if (role === 'RESTAURANT') {
+        await tx.userRoles.create({
+          data: {
+            userId: user.id,
+            role: 'RESTAURANT',
+          },
+        });
 
-        case 'ADMIN':
-          // Admin ไม่ต้องสร้าง record เพิ่มเติม
-          break;
+        await tx.restaurant.create({
+          data: {
+            userId: user.id,
+            name: `ร้าน${firstName} ${lastName}`, // ชื่อร้านเริ่มต้น
+            description: 'ร้านอาหารใหม่',
+            address: 'กรุณาอัพเดทที่อยู่ร้าน',
+            phone: phone || '',
+          },
+        });
       }
 
       return user;
@@ -139,13 +106,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       { 
-        message: 'สมัครสมาชิกสำเร็จ',
+        message: role === 'RESTAURANT' ? 'สมัครเปิดร้านอาหารสำเร็จ! เรากำลังตรวจสอบข้อมูลร้านของคุณ' : 'สมัครสมาชิกสำเร็จ คุณสามารถเพิ่ม role อื่นๆ ได้ในภายหลัง',
         user: {
           id: result.id,
           email: result.email,
           firstName: result.firstName,
           lastName: result.lastName,
-          role: result.role,
+          primaryRole: result.primaryRole,
+          roles: role === 'RESTAURANT' ? ['CUSTOMER', 'RESTAURANT'] : ['CUSTOMER'],
         }
       },
       { status: 201 }

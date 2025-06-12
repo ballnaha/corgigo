@@ -18,20 +18,22 @@ export default withAuth(
 
     // Role-based route protection
     if (token) {
-      const userRole = token.role;
+      const userRole = token.primaryRole || token.currentRole;
+      const userRoles = token.roles || [];
 
       // Admin routes
-      if (path.startsWith('/admin') && userRole !== 'ADMIN') {
+      if (path.startsWith('/admin') && userRole !== 'ADMIN' && !userRoles.includes('ADMIN')) {
         return NextResponse.redirect(new URL('/unauthorized', req.url));
       }
 
       // Rider routes
-      if (path.startsWith('/rider') && userRole !== 'RIDER') {
+      if (path.startsWith('/rider') && userRole !== 'RIDER' && !userRoles.includes('RIDER')) {
         return NextResponse.redirect(new URL('/unauthorized', req.url));
       }
 
-      // Restaurant routes
-      if (path.startsWith('/restaurant') && userRole !== 'RESTAURANT') {
+      // Restaurant routes (except register page)
+      if (path.startsWith('/restaurant') && path !== '/restaurant/register' && 
+          userRole !== 'RESTAURANT' && !userRoles.includes('RESTAURANT')) {
         return NextResponse.redirect(new URL('/unauthorized', req.url));
       }
 
