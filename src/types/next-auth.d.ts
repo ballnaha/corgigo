@@ -39,6 +39,7 @@ declare module 'next-auth/jwt' {
     roles: ('CUSTOMER' | 'RIDER' | 'RESTAURANT' | 'ADMIN')[];
     currentRole?: 'CUSTOMER' | 'RIDER' | 'RESTAURANT' | 'ADMIN';
     status: string;
+    avatar?: string | null;
     customer?: Customer;
     rider?: Rider;
     restaurant?: Restaurant;

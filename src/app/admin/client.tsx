@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Box,
@@ -21,7 +21,13 @@ import {
   TableHead,
   TableRow,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
+import { useSnackbar } from '@/contexts/SnackbarContext';
 import {
   Dashboard,
   AccountCircle,
@@ -30,6 +36,9 @@ import {
   TwoWheeler,
   BarChart,
   Settings,
+  CheckCircle,
+  Cancel,
+  Visibility,
 } from '@mui/icons-material';
 
 interface TabPanelProps {
@@ -54,8 +63,36 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+interface RestaurantDocument {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  createdAt: string;
+}
+
+interface PendingRestaurant {
+  id: string;
+  name: string;
+  owner: string;
+  phone: string;
+  email: string;
+  address: string;
+  description: string;
+  submittedAt: string;
+  documents: RestaurantDocument[];
+}
+
 export default function AdminPage() {
+  const { showSnackbar } = useSnackbar();
   const [tabValue, setTabValue] = useState(0);
+  const [pendingRestaurants, setPendingRestaurants] = useState<PendingRestaurant[]>([]);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<PendingRestaurant | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [loading, setLoading] = useState(false);
 
   // Mock data
   const stats = {
@@ -63,6 +100,7 @@ export default function AdminPage() {
     totalRestaurants: 847,
     totalRiders: 156,
     totalOrders: 25680,
+    pendingRestaurants: 12,
   };
 
   const recentOrders = [
@@ -83,8 +121,104 @@ export default function AdminPage() {
     { id: '3', name: 'คุณมานะ', phone: '081-333-3333', status: 'กำลังส่ง', deliveries: 71 },
   ];
 
+  // Load pending restaurants data
+  useEffect(() => {
+    const loadPendingRestaurants = async () => {
+      try {
+        const response = await fetch('/api/admin/restaurants/pending');
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          setPendingRestaurants(result.restaurants);
+        } else {
+          console.error('Error loading pending restaurants:', result.error);
+          // Fallback to mock data if API fails
+          setPendingRestaurants([]);
+        }
+      } catch (error) {
+        console.error('Error loading pending restaurants:', error);
+        // Fallback to mock data if API fails
+        setPendingRestaurants([]);
+      }
+    };
+
+    loadPendingRestaurants();
+  }, []);
+
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+  };
+
+  const handleViewRestaurant = (restaurant: PendingRestaurant) => {
+    setSelectedRestaurant(restaurant);
+    setDialogOpen(true);
+  };
+
+  const handleApproveRestaurant = async (restaurantId: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/restaurants/approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restaurantId,
+          action: 'APPROVED'
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setPendingRestaurants(prev => prev.filter(r => r.id !== restaurantId));
+        setDialogOpen(false);
+        setSelectedRestaurant(null);
+        showSnackbar('อนุมัติร้านอาหารสำเร็จ', 'success');
+      } else {
+        showSnackbar(result.error || 'ไม่สามารถอนุมัติร้านอาหารได้', 'error');
+      }
+    } catch (error) {
+      showSnackbar('เกิดข้อผิดพลาดในการอนุมัติร้านอาหาร', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRejectRestaurant = async () => {
+    if (!selectedRestaurant || !rejectReason.trim()) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/restaurants/approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restaurantId: selectedRestaurant.id,
+          action: 'REJECTED',
+          rejectReason: rejectReason.trim()
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setPendingRestaurants(prev => prev.filter(r => r.id !== selectedRestaurant.id));
+        setRejectDialogOpen(false);
+        setDialogOpen(false);
+        setSelectedRestaurant(null);
+        setRejectReason('');
+        showSnackbar('ปฏิเสธร้านอาหารสำเร็จ', 'success');
+      } else {
+        showSnackbar(result.error || 'ไม่สามารถปฏิเสธร้านอาหารได้', 'error');
+      }
+    } catch (error) {
+      showSnackbar('เกิดข้อผิดพลาดในการปฏิเสธร้านอาหาร', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -103,6 +237,16 @@ export default function AdminPage() {
       default:
         return 'default';
     }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   return (
@@ -172,6 +316,15 @@ export default function AdminPage() {
                 คำสั่งซื้อทั้งหมด
               </Typography>
             </Paper>
+            <Paper sx={{ p: 2, minWidth: 200, textAlign: 'center', bgcolor: 'warning.50' }}>
+              <Restaurant sx={{ color: 'warning.main', fontSize: 40, mb: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'warning.main' }}>
+                {stats.pendingRestaurants}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                รอการอนุมัติ
+              </Typography>
+            </Paper>
           </Box>
 
           {/* Tabs */}
@@ -180,6 +333,7 @@ export default function AdminPage() {
               <Tab label="คำสั่งซื้อล่าสุด" />
               <Tab label="ร้านอาหาร" />
               <Tab label="ไรเดอร์" />
+              <Tab label="รอการอนุมัติ" />
             </Tabs>
           </Box>
 
@@ -220,7 +374,7 @@ export default function AdminPage() {
 
           <TabPanel value={tabValue} index={1}>
             <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-              ร้านอาหาร
+              ร้านอาหารทั้งหมด
             </Typography>
             <TableContainer component={Paper}>
               <Table>
@@ -229,8 +383,7 @@ export default function AdminPage() {
                     <TableCell>ชื่อร้าน</TableCell>
                     <TableCell>เจ้าของ</TableCell>
                     <TableCell>สถานะ</TableCell>
-                    <TableCell>จำนวนออเดอร์</TableCell>
-                    <TableCell>จัดการ</TableCell>
+                    <TableCell>ออเดอร์</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -246,9 +399,6 @@ export default function AdminPage() {
                         />
                       </TableCell>
                       <TableCell>{restaurant.orders}</TableCell>
-                      <TableCell>
-                        <Button size="small">ดูรายละเอียด</Button>
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -258,7 +408,7 @@ export default function AdminPage() {
 
           <TabPanel value={tabValue} index={2}>
             <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-              ไรเดอร์
+              ไรเดอร์ทั้งหมด
             </Typography>
             <TableContainer component={Paper}>
               <Table>
@@ -267,8 +417,7 @@ export default function AdminPage() {
                     <TableCell>ชื่อ</TableCell>
                     <TableCell>เบอร์โทร</TableCell>
                     <TableCell>สถานะ</TableCell>
-                    <TableCell>จำนวนการส่ง</TableCell>
-                    <TableCell>จัดการ</TableCell>
+                    <TableCell>การส่ง</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -284,17 +433,264 @@ export default function AdminPage() {
                         />
                       </TableCell>
                       <TableCell>{rider.deliveries}</TableCell>
-                      <TableCell>
-                        <Button size="small">ดูรายละเอียด</Button>
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </TableContainer>
           </TabPanel>
+
+          <TabPanel value={tabValue} index={3}>
+            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
+              ร้านอาหารรอการอนุมัติ ({pendingRestaurants.length})
+            </Typography>
+            {pendingRestaurants.length === 0 ? (
+              <Box sx={{ 
+                mt: 2, 
+                p: 2, 
+                bgcolor: '#e3f2fd', 
+                borderRadius: 2, 
+                border: '1px solid #bbdefb' 
+              }}>
+                <Typography color="primary">
+                  ไม่มีร้านอาหารที่รอการอนุมัติ
+                </Typography>
+              </Box>
+            ) : (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>ชื่อร้าน</TableCell>
+                      <TableCell>เจ้าของ</TableCell>
+                      <TableCell>เบอร์โทร</TableCell>
+                      <TableCell>วันที่สมัคร</TableCell>
+                      <TableCell>การดำเนินการ</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {pendingRestaurants.map((restaurant) => (
+                      <TableRow key={restaurant.id}>
+                        <TableCell>{restaurant.name}</TableCell>
+                        <TableCell>{restaurant.owner}</TableCell>
+                        <TableCell>{restaurant.phone}</TableCell>
+                        <TableCell>{formatDate(restaurant.submittedAt)}</TableCell>
+                        <TableCell>
+                          <Button
+                            startIcon={<Visibility />}
+                            size="small"
+                            onClick={() => handleViewRestaurant(restaurant)}
+                            sx={{ mr: 1 }}
+                          >
+                            ดูรายละเอียด
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </TabPanel>
         </Container>
       </Box>
+
+      {/* Restaurant Detail Dialog */}
+      <Dialog 
+        open={dialogOpen} 
+        onClose={() => setDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        {selectedRestaurant && (
+          <>
+            <DialogTitle>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                รายละเอียดร้าน: {selectedRestaurant.name}
+              </Typography>
+            </DialogTitle>
+            <DialogContent>
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  ข้อมูลเจ้าของร้าน
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>ชื่อ:</strong> {selectedRestaurant.owner}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>เบอร์โทร:</strong> {selectedRestaurant.phone}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>อีเมล:</strong> {selectedRestaurant.email}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  <strong>ที่อยู่:</strong> {selectedRestaurant.address}
+                </Typography>
+
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  รายละเอียดร้าน
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  {selectedRestaurant.description}
+                </Typography>
+
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  เอกสารแนบ ({selectedRestaurant.documents.length})
+                </Typography>
+                {selectedRestaurant.documents.length > 0 ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
+                    {selectedRestaurant.documents.map((doc) => {
+                      const isImage = doc.type.startsWith('image/');
+                      const isPdf = doc.type === 'application/pdf';
+                      const isWord = doc.type === 'application/msword' || doc.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                      const isExcel = doc.type === 'application/vnd.ms-excel' || doc.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                      
+                      return (
+                        <Box 
+                          key={doc.id}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 2,
+                            p: 2,
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 2,
+                            bgcolor: '#fafafa',
+                          }}
+                        >
+                          {isImage ? (
+                            <Box
+                              component="img"
+                              src={doc.url}
+                              alt={doc.name}
+                              sx={{
+                                width: 60,
+                                height: 60,
+                                borderRadius: 1,
+                                objectFit: 'cover',
+                                border: '2px solid #ddd',
+                              }}
+                            />
+                          ) : (
+                            <Box
+                              sx={{
+                                width: 60,
+                                height: 60,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                bgcolor: isPdf ? '#f44336' : isWord ? '#2B579A' : isExcel ? '#217346' : '#2196f3',
+                                borderRadius: 1,
+                                color: 'white',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                              }}
+                            >
+                              {isPdf ? 'PDF' : isWord ? 'DOC' : isExcel ? 'XLS' : 'FILE'}
+                            </Box>
+                          )}
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                              {doc.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {(doc.size / 1024 / 1024).toFixed(2)} MB • {new Date(doc.createdAt).toLocaleDateString('th-TH')}
+                            </Typography>
+                            <Box sx={{ mt: 0.5 }}>
+                              <Chip
+                                label={isImage ? 'รูปภาพ' : isPdf ? 'PDF' : isWord ? 'DOC' : isExcel ? 'XLS' : 'ไฟล์'}
+                                size="small"
+                                color={isImage ? 'success' : isPdf ? 'error' : isWord ? 'primary' : isExcel ? 'success' : 'default'}
+                                variant="outlined"
+                              />
+                            </Box>
+                          </Box>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => window.open(doc.url, '_blank')}
+                          >
+                            ดู
+                          </Button>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    ไม่มีเอกสารแนบ
+                  </Typography>
+                )}
+
+                <Typography variant="body2" color="text.secondary">
+                  <strong>วันที่สมัคร:</strong> {formatDate(selectedRestaurant.submittedAt)}
+                </Typography>
+              </Box>
+            </DialogContent>
+            <DialogActions sx={{ p: 3 }}>
+              <Button 
+                onClick={() => setRejectDialogOpen(true)}
+                color="error"
+                variant="outlined"
+                disabled={loading}
+              >
+                ปฏิเสธ
+              </Button>
+              <Button 
+                onClick={() => handleApproveRestaurant(selectedRestaurant.id)}
+                color="success"
+                variant="contained"
+                disabled={loading}
+                startIcon={<CheckCircle />}
+              >
+                อนุมัติ
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* Reject Reason Dialog */}
+      <Dialog 
+        open={rejectDialogOpen} 
+        onClose={() => setRejectDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+            ระบุเหตุผลในการปฏิเสธ
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="ระบุเหตุผลในการปฏิเสธ..."
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button 
+            onClick={() => setRejectDialogOpen(false)}
+            disabled={loading}
+          >
+            ยกเลิก
+          </Button>
+          <Button 
+            onClick={handleRejectRestaurant}
+            color="error"
+            variant="contained"
+            disabled={loading || !rejectReason.trim()}
+            startIcon={<Cancel />}
+          >
+            ปฏิเสธ
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 } 

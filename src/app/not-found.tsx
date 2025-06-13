@@ -2,25 +2,22 @@
 
 import { Box, Typography, Button, Container, Card, CardContent, Stack, Chip } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
 import { 
-  Block, 
-  ArrowBack, 
-  Login, 
-  Logout, 
+  SearchOff, 
+  Home, 
   Restaurant, 
   LocalOffer,
-  Fastfood 
+  Fastfood,
+  TrendingUp 
 } from '@mui/icons-material';
 
-export default function UnauthorizedPage() {
+export default function NotFoundPage() {
   const router = useRouter();
-  const { data: session } = useSession();
 
-  const featuredFoods = [
-    { name: 'ข้าวผัดกุ้ง', price: '฿89', emoji: '🍤' },
-    { name: 'ส้มตำไทย', price: '฿59', emoji: '🥗' },
-    { name: 'ต้มยำกุ้ง', price: '฿129', emoji: '🍲' },
+  const popularFoods = [
+    { name: 'ข้าวมันไก่', price: '฿79', emoji: '🍗', tag: 'ขายดี' },
+    { name: 'ผัดไทย', price: '฿69', emoji: '🍜', tag: 'คลาสสิค' },
+    { name: 'มาม่าต้มยำ', price: '฿49', emoji: '🍲', tag: 'ราคาดี' },
   ];
 
   return (
@@ -40,7 +37,7 @@ export default function UnauthorizedPage() {
         >
           {/* Error Icon & Code */}
           <Box sx={{ mb: 3 }}>
-            <Block sx={{ 
+            <SearchOff sx={{ 
               fontSize: 80, 
               color: '#F8A66E',
               mb: 2,
@@ -56,7 +53,7 @@ export default function UnauthorizedPage() {
                 mb: 1,
               }}
             >
-              403
+              404
             </Typography>
           </Box>
 
@@ -70,7 +67,7 @@ export default function UnauthorizedPage() {
               mb: 1,
             }}
           >
-            ไม่ได้รับอนุญาต
+            ไม่พบหน้าที่ค้นหา
           </Typography>
           <Typography 
             variant="body1" 
@@ -81,10 +78,10 @@ export default function UnauthorizedPage() {
               maxWidth: '400px',
             }}
           >
-            คุณไม่มีสิทธิ์เข้าถึงหน้านี้ ลองสั่งอาหารอร่อยๆ แทนไหม?
+            หน้าที่คุณกำลังมองหาไม่มีอยู่ แต่เรามีอาหารอร่อยๆ รออยู่!
           </Typography>
 
-          {/* Featured Foods */}
+          {/* Popular Foods */}
           <Card 
             elevation={0}
             sx={{ 
@@ -98,7 +95,7 @@ export default function UnauthorizedPage() {
           >
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Fastfood sx={{ color: '#F8A66E', mr: 1, fontSize: 20 }} />
+                <TrendingUp sx={{ color: '#F8A66E', mr: 1, fontSize: 20 }} />
                 <Typography 
                   variant="subtitle1" 
                   sx={{ 
@@ -107,14 +104,14 @@ export default function UnauthorizedPage() {
                     color: '#1A1A1A',
                   }}
                 >
-                  อาหารแนะนำวันนี้
+                  เมนูยอดนิยม
                 </Typography>
                 <Chip
-                  label="HOT"
+                  label="TOP"
                   size="small"
                   sx={{
                     ml: 1,
-                    bgcolor: '#FF6B6B',
+                    bgcolor: '#4CAF50',
                     color: 'white',
                     fontFamily: 'Prompt, sans-serif',
                     fontSize: '0.7rem',
@@ -123,7 +120,7 @@ export default function UnauthorizedPage() {
               </Box>
               
               <Stack spacing={2}>
-                {featuredFoods.map((food, index) => (
+                {popularFoods.map((food, index) => (
                   <Box 
                     key={index}
                     sx={{ 
@@ -134,22 +131,43 @@ export default function UnauthorizedPage() {
                       bgcolor: '#FAFAFA',
                       borderRadius: 2,
                       border: '1px solid #F0F0F0',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: '#F0F0F0',
+                        transform: 'translateY(-1px)',
+                      },
                     }}
+                    onClick={() => router.push('/')}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <Typography sx={{ fontSize: '1.5rem', mr: 1.5 }}>
                         {food.emoji}
                       </Typography>
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          fontFamily: 'Prompt, sans-serif',
-                          fontWeight: 500,
-                          color: '#1A1A1A',
-                        }}
-                      >
-                        {food.name}
-                      </Typography>
+                      <Box>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            fontFamily: 'Prompt, sans-serif',
+                            fontWeight: 500,
+                            color: '#1A1A1A',
+                          }}
+                        >
+                          {food.name}
+                        </Typography>
+                        <Chip
+                          label={food.tag}
+                          size="small"
+                          sx={{
+                            height: 16,
+                            fontSize: '0.65rem',
+                            bgcolor: '#E3F2FD',
+                            color: '#1976D2',
+                            fontFamily: 'Prompt, sans-serif',
+                            mt: 0.5,
+                          }}
+                        />
+                      </Box>
                     </Box>
                     <Typography 
                       variant="body2" 
@@ -186,13 +204,13 @@ export default function UnauthorizedPage() {
                 },
               }}
             >
-              สั่งอาหารเลย
+              ดูเมนูทั้งหมด
             </Button>
             
             <Button
               variant="outlined"
-              startIcon={<ArrowBack />}
-              onClick={() => router.back()}
+              startIcon={<Home />}
+              onClick={() => router.push('/')}
               sx={{
                 borderColor: '#E8E8E8',
                 color: '#666',
@@ -207,47 +225,23 @@ export default function UnauthorizedPage() {
                 },
               }}
             >
-              กลับไปหน้าที่แล้ว
+              กลับหน้าหลัก
             </Button>
-            
-            {session ? (
-              <Button
-                variant="text"
-                startIcon={<Logout />}
-                onClick={() => signOut({ callbackUrl: '/auth/login' })}
-                sx={{
-                  color: '#999',
-                  fontFamily: 'Prompt, sans-serif',
-                  fontWeight: 500,
-                  textTransform: 'none',
-                  '&:hover': {
-                    color: '#FF6B6B',
-                    bgcolor: 'transparent',
-                  },
-                }}
-              >
-                ออกจากระบบ
-              </Button>
-            ) : (
-              <Button
-                variant="text"
-                startIcon={<Login />}
-                onClick={() => router.push('/auth/login')}
-                sx={{
-                  color: '#999',
-                  fontFamily: 'Prompt, sans-serif',
-                  fontWeight: 500,
-                  textTransform: 'none',
-                  '&:hover': {
-                    color: '#F8A66E',
-                    bgcolor: 'transparent',
-                  },
-                }}
-              >
-                เข้าสู่ระบบ
-              </Button>
-            )}
           </Stack>
+
+          {/* Fun Message */}
+          <Box sx={{ mt: 4, opacity: 0.7 }}>
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                fontFamily: 'Prompt, sans-serif',
+                color: '#999',
+                fontStyle: 'italic',
+              }}
+            >
+              🐕 CorgiGo - ส่งอาหารเร็วเหมือนคอร์กี้วิ่ง!
+            </Typography>
+          </Box>
         </Box>
       </Container>
     </Box>

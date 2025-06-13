@@ -15,8 +15,6 @@ import {
   CircularProgress,
   Stack,
   Chip,
-  Snackbar,
-  Alert,
   Box,
   alpha,
 } from '@mui/material';
@@ -38,6 +36,8 @@ import {
   Restaurant,
   Add,
 } from '@mui/icons-material';
+import RestaurantStatusButton from '@/components/RestaurantStatusButton';
+import { useSnackbar } from '@/contexts/SnackbarContext';
 
 // Utility function to resize image
 const resizeImage = (file: File, maxWidth: number = 400, maxHeight: number = 400, quality: number = 0.8): Promise<Blob> => {
@@ -78,16 +78,12 @@ export default function SimpleProfileClient() {
   const { data: session, status, update: updateSession } = useSession();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { showSnackbar } = useSnackbar();
   
   const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [snackbar, setSnackbar] = useState({ 
-    open: false, 
-    message: '', 
-    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
-  });
   const [profileData, setProfileData] = useState({
     firstName: '',
     lastName: '',
@@ -198,7 +194,9 @@ export default function SimpleProfileClient() {
   };
 
   const handleAvatarClick = () => {
-    fileInputRef.current?.click();
+    if (isEditing) {
+      fileInputRef.current?.click();
+    }
   };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -206,20 +204,12 @@ export default function SimpleProfileClient() {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setSnackbar({ 
-        open: true, 
-        message: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น', 
-        severity: 'error' 
-      });
+      showSnackbar('กรุณาเลือกไฟล์รูปภาพเท่านั้น', 'error');
       return;
     }
 
     if (file.size > 15 * 1024 * 1024) {
-      setSnackbar({ 
-        open: true, 
-        message: 'ขนาดไฟล์ต้องไม่เกิน 15MB', 
-        severity: 'error' 
-      });
+      showSnackbar('ขนาดไฟล์ต้องไม่เกิน 15MB', 'error');
       return;
     }
 
@@ -258,21 +248,13 @@ export default function SimpleProfileClient() {
           }
         });
 
-        setSnackbar({ 
-          open: true, 
-          message: 'อัปโหลดรูปโปรไฟล์สำเร็จ', 
-          severity: 'success' 
-        });
+        showSnackbar('อัปโหลดรูปโปรไฟล์สำเร็จ', 'success');
       } else {
         throw new Error(result.error || 'อัปโหลดไม่สำเร็จ');
       }
     } catch (error: any) {
       console.error('Upload error:', error);
-      setSnackbar({ 
-        open: true, 
-        message: error.message || 'เกิดข้อผิดพลาดในการอัปโหลด', 
-        severity: 'error' 
-      });
+      showSnackbar(error.message || 'เกิดข้อผิดพลาดในการอัปโหลด', 'error');
     } finally {
       setIsUploading(false);
     }
@@ -280,11 +262,7 @@ export default function SimpleProfileClient() {
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setSnackbar({ 
-        open: true, 
-        message: 'เบราว์เซอร์ไม่รองรับ GPS', 
-        severity: 'error' 
-      });
+      showSnackbar('เบราว์เซอร์ไม่รองรับ GPS', 'error');
       return;
     }
 
@@ -327,22 +305,14 @@ export default function SimpleProfileClient() {
           
           setProfileData(prev => ({ ...prev, address: address || `${position.coords.latitude}, ${position.coords.longitude}` }));
           setCurrentLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-          setSnackbar({ 
-            open: true, 
-            message: 'ดึงตำแหน่งปัจจุบันสำเร็จ', 
-            severity: 'success' 
-          });
+          showSnackbar('ดึงตำแหน่งปัจจุบันสำเร็จ', 'success');
           
         } catch (error: any) {
           console.error('Geocoding error:', error);
           // Fallback to coordinates
           setProfileData(prev => ({ ...prev, address: `${position.coords.latitude}, ${position.coords.longitude}` }));
           setCurrentLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-          setSnackbar({ 
-            open: true, 
-            message: 'ใช้พิกัดแทนที่อยู่', 
-            severity: 'warning' 
-          });
+          showSnackbar('ใช้พิกัดแทนที่อยู่', 'info');
         } finally {
           setIsGettingLocation(false);
         }
@@ -363,11 +333,7 @@ export default function SimpleProfileClient() {
             break;
         }
         
-        setSnackbar({ 
-          open: true, 
-          message, 
-          severity: 'error' 
-        });
+        showSnackbar(message, 'error');
         setIsGettingLocation(false);
       },
       {
@@ -401,55 +367,24 @@ export default function SimpleProfileClient() {
           ...session,
           user: {
             ...session.user,
-            name: `${result.user.firstName} ${result.user.lastName}`,
+            name: `${profileData.firstName} ${profileData.lastName}`.trim(),
+            email: profileData.email,
+            phone: profileData.phone,
+            address: profileData.address,
           }
         });
 
-        // อัปเดต profileData และ location
-        setProfileData({
-          firstName: result.user.firstName || '',
-          lastName: result.user.lastName || '',
-          email: result.user.email || '',
-          phone: result.user.phone || '',
-          address: result.user.address || '',
-        });
-
-        if (result.user.latitude && result.user.longitude) {
-          setCurrentLocation({
-            lat: result.user.latitude,
-            lng: result.user.longitude
-          });
-        }
-
-        // แสดงข้อมูลที่เปลี่ยนแปลง
-        const changes = [];
-        if (result.user.firstName) changes.push(`ชื่อ: ${result.user.firstName}`);
-        if (result.user.lastName) changes.push(`นามสกุล: ${result.user.lastName}`);
-        if (result.user.phone) changes.push(`เบอร์โทร: ${result.user.phone}`);
-        if (result.user.address) changes.push(`ที่อยู่: ${result.user.address}`);
-        if (result.user.latitude && result.user.longitude) {
-          changes.push(`ตำแหน่ง GPS: ${result.user.latitude.toFixed(6)}, ${result.user.longitude.toFixed(6)}`);
-        }
-
-        const changeMessage = changes.length > 0 
-          ? `บันทึกสำเร็จ - ${changes.join(', ')}` 
-          : 'บันทึกข้อมูลสำเร็จ';
-
-        setSnackbar({ 
-          open: true, 
-          message: changeMessage, 
-          severity: 'success' 
-        });
         setIsEditing(false);
+        
+        // เด้งไปด้านบนสุดและแสดง snackbar
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        showSnackbar('บันทึกข้อมูลสำเร็จ', 'success');
       } else {
-        throw new Error(result.error || 'บันทึกข้อมูลไม่สำเร็จ');
+        throw new Error(result.error || 'บันทึกไม่สำเร็จ');
       }
     } catch (error: any) {
-      setSnackbar({ 
-        open: true, 
-        message: error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง', 
-        severity: 'error' 
-      });
+      console.error('Save error:', error);
+      showSnackbar(error.message || 'เกิดข้อผิดพลาดในการบันทึก', 'error');
     }
   };
 
@@ -457,194 +392,134 @@ export default function SimpleProfileClient() {
     await signOut({ callbackUrl: '/auth/login' });
   };
 
-  const handleSnackbarClose = () => {
-    setSnackbar(prev => ({ ...prev, open: false }));
-  };
-
   const handleLocationUpdateFromMap = (lat: number, lng: number) => {
     setCurrentLocation({ lat, lng });
-    setProfileData(prev => ({ ...prev, address: `${lat.toFixed(6)}, ${lng.toFixed(6)}` }));
   };
 
   return (
     <Box sx={{ 
-      backgroundColor: '#FAFAFA',
+      backgroundColor: '#FFFFFF',
       minHeight: '100vh',
       paddingBottom: '80px',
       fontFamily: 'Prompt, sans-serif',
     }}>
       <AppHeader />
       
-      <Container maxWidth="sm" sx={{ py: 0, px: 0 }}>
-        {/* Profile Header */}
-        <Box
-          sx={{
-            background: 'linear-gradient(180deg, #FFFFFF 0%, #FAFAFA 100%)',
-            pt: 4,
-            pb: 3,
-            px: 3,
-            textAlign: 'center',
-            position: 'relative',
-          }}
-        >
-          {/* Edit Button */}
-          <IconButton 
-            onClick={handleEditToggle}
-            sx={{ 
-              position: 'absolute',
-              top: 16,
-              right: 16,
-              bgcolor: alpha('#000', 0.04),
-              '&:hover': { bgcolor: alpha('#000', 0.08) },
-              width: 40,
-              height: 40,
-            }}
-          >
-            {isEditing ? <Cancel sx={{ fontSize: 20, color: '#666' }} /> : <Edit sx={{ fontSize: 20, color: '#666' }} />}
-          </IconButton>
-
-          {/* Avatar Section */}
-          <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
-            <Avatar
-              src={avatarPreview || session.user.avatar || undefined}
-              sx={{ 
-                width: 88, 
-                height: 88, 
-                mx: 'auto',
-                bgcolor: '#F5F5F5',
-                border: '3px solid #FFFFFF',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              }}
-            >
-              {!avatarPreview && !session.user.avatar && (
-                <Person sx={{ fontSize: 40, color: '#999' }} />
-              )}
-            </Avatar>
-            
-            <IconButton
-              onClick={handleAvatarClick}
-              disabled={isUploading}
-              sx={{
-                position: 'absolute',
-                bottom: -4,
-                right: -4,
-                bgcolor: '#FFFFFF',
-                border: '2px solid #F5F5F5',
-                width: 32,
-                height: 32,
-                '&:hover': { 
-                  bgcolor: '#FAFAFA',
-                  transform: 'scale(1.1)',
-                },
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              {isUploading ? (
-                <CircularProgress size={16} sx={{ color: '#666' }} />
-              ) : (
-                <PhotoCamera sx={{ fontSize: 16, color: '#666' }} />
-              )}
-            </IconButton>
-          </Box>
-          
-          {/* User Info */}
-          <Typography 
-            variant="h6" 
-            sx={{ 
-              fontFamily: 'Prompt, sans-serif',
-              fontWeight: 600, 
-              color: '#1A1A1A', 
-              mb: 0.5, 
-            }}
-          >
-            {session.user.name || 'ผู้ใช้งาน'}
-          </Typography>
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              fontFamily: 'Prompt, sans-serif',
-              color: '#666', 
-              mb: 2, 
-            }}
-          >
-            {session.user.email}
-          </Typography>
-          
-          {/* Role Badge */}
-          <Chip 
-            icon={<VerifiedUser sx={{ fontSize: 16 }} />}
-            label={session.user.primaryRole || 'CUSTOMER'} 
-            size="small"
-            sx={{
-              fontFamily: 'Prompt, sans-serif',
-              bgcolor: alpha('#F8A66E', 0.1),
-              color: '#F8A66E',
-              fontWeight: 500,
-              height: 28,
-              '& .MuiChip-icon': { color: '#F8A66E' },
-              border: `1px solid ${alpha('#F8A66E', 0.2)}`,
-            }}
-          />
-
-          {/* Restaurant Link */}
-          <Box sx={{ mt: 2 }}>
-            <Button
-              variant="outlined"
-              startIcon={session.user.restaurant ? <Restaurant /> : <Add />}
-              onClick={() => {
-                if (session.user.restaurant) {
-                  router.push('/restaurant');
-                } else {
-                  router.push('/restaurant/register');
-                }
-              }}
-              sx={{
-                borderColor: '#F8A66E',
-                color: '#F8A66E',
-                fontFamily: 'Prompt, sans-serif',
-                fontWeight: 500,
-                borderRadius: 2,
-                px: 3,
-                py: 1,
-                textTransform: 'none',
-                '&:hover': {
-                  borderColor: '#E8956E',
-                  bgcolor: alpha('#F8A66E', 0.04),
-                },
-              }}
-            >
-              {session.user.restaurant ? 'ร้านอาหารของฉัน' : 'สมัครเปิดร้านอาหาร'}
-            </Button>
-          </Box>
-        </Box>
-
-        {/* Profile Form */}
-        <Box sx={{ px: 3, pb: 3 }}>
+      <Container maxWidth="xl" sx={{ py: 2, px: 2 }}>
+        <Box sx={{ mb: 10 }}>
+          {/* Profile Card */}
           <Card 
             elevation={0}
             sx={{ 
               borderRadius: 3,
               border: '1px solid #E8E8E8',
               bgcolor: '#FFFFFF',
+              mb: 2,
             }}
           >
             <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                <Person sx={{ color: '#666', mr: 1.5, fontSize: 20 }} />
+              {/* Avatar Section */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
+                <Box sx={{ position: 'relative', mb: 2 }}>
+                  <Avatar
+                    src={avatarPreview || session.user?.avatar || undefined}
+                    sx={{ 
+                      width: 100, 
+                      height: 100,
+                      cursor: 'pointer', // เปลี่ยนให้คลิกได้เสมอ
+                      border: '3px solid #F8A66E',
+                      '&:hover': {
+                        opacity: 0.8,
+                        transform: 'scale(1.05)',
+                      },
+                      transition: 'all 0.2s ease',
+                    }}
+                    onClick={handleAvatarClick}
+                  >
+                    {!avatarPreview && !session.user?.avatar && (
+                      <Person sx={{ fontSize: 50, color: '#999' }} />
+                    )}
+                  </Avatar>
+                  
+                  {/* แสดงปุ่มกล้องเสมอ แต่ disable เมื่อไม่ได้แก้ไข */}
+                  <IconButton
+                    sx={{
+                      position: 'absolute',
+                      bottom: -5,
+                      right: -5,
+                      bgcolor: isEditing ? '#F8A66E' : '#999',
+                      color: '#FFFFFF',
+                      width: 32,
+                      height: 32,
+                      '&:hover': {
+                        bgcolor: isEditing ? '#E8956E' : '#777',
+                      },
+                      opacity: isEditing ? 1 : 0.6,
+                    }}
+                    onClick={handleAvatarClick}
+                    disabled={isUploading || !isEditing}
+                    title={isEditing ? 'เปลี่ยนรูปโปรไฟล์' : 'กดแก้ไขข้อมูลเพื่อเปลี่ยนรูป'}
+                  >
+                    {isUploading ? (
+                      <CircularProgress size={16} sx={{ color: '#FFFFFF' }} />
+                    ) : (
+                      <PhotoCamera sx={{ fontSize: 16 }} />
+                    )}
+                  </IconButton>
+                </Box>
+
+                {/* User Info */}
                 <Typography 
-                  variant="subtitle1" 
+                  variant="h6" 
                   sx={{ 
                     fontFamily: 'Prompt, sans-serif',
-                    fontWeight: 600, 
-                    color: '#1A1A1A', 
+                    fontWeight: 600,
+                    color: '#1A1A1A',
+                    textAlign: 'center',
                   }}
                 >
-                  ข้อมูลส่วนตัว
+                  {profileData.firstName || profileData.lastName 
+                    ? `${profileData.firstName} ${profileData.lastName}`.trim()
+                    : session.user?.name || 'ผู้ใช้งาน'
+                  }
                 </Typography>
+                
+                {/* Avatar Upload Hint */}
+                {isEditing && (
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      fontFamily: 'Prompt, sans-serif',
+                      color: '#666',
+                      textAlign: 'center',
+                      mt: 0.5,
+                    }}
+                  >
+                    คลิกที่รูปภาพเพื่อเปลี่ยนรูปโปรไฟล์
+                  </Typography>
+                )}
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                  <Email sx={{ color: '#999', fontSize: 16 }} />
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      fontFamily: 'Prompt, sans-serif',
+                      color: '#666',
+                    }}
+                  >
+                    {profileData.email || session.user?.email}
+                  </Typography>
+                </Box>
+
+                {/* Restaurant Status */}
+                <Box sx={{ mt: 2 }}>
+                  <RestaurantStatusButton session={session} router={router} />
+                </Box>
               </Box>
-              
-              <Stack spacing={2.5}>
+
+              {/* Form Fields */}
+              <Stack spacing={3}>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <TextField
                     fullWidth
@@ -653,12 +528,14 @@ export default function SimpleProfileClient() {
                     onChange={(e) => setProfileData(prev => ({ ...prev, firstName: e.target.value }))}
                     disabled={!isEditing}
                     variant="outlined"
-                    size="small"
+                    InputProps={{
+                      startAdornment: <Person sx={{ mr: 1.5, color: '#999', fontSize: 18 }} />,
+                    }}
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: 2,
-                        bgcolor: isEditing ? '#FFFFFF' : '#FAFAFA',
                         fontFamily: 'Prompt, sans-serif',
+                        bgcolor: isEditing ? '#FFFFFF' : '#F8F8F8',
                       },
                       '& .MuiInputLabel-root': { 
                         fontFamily: 'Prompt, sans-serif',
@@ -672,12 +549,14 @@ export default function SimpleProfileClient() {
                     onChange={(e) => setProfileData(prev => ({ ...prev, lastName: e.target.value }))}
                     disabled={!isEditing}
                     variant="outlined"
-                    size="small"
+                    InputProps={{
+                      startAdornment: <Person sx={{ mr: 1.5, color: '#999', fontSize: 18 }} />,
+                    }}
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: 2,
-                        bgcolor: isEditing ? '#FFFFFF' : '#FAFAFA',
                         fontFamily: 'Prompt, sans-serif',
+                        bgcolor: isEditing ? '#FFFFFF' : '#F8F8F8',
                       },
                       '& .MuiInputLabel-root': { 
                         fontFamily: 'Prompt, sans-serif',
@@ -685,52 +564,51 @@ export default function SimpleProfileClient() {
                     }}
                   />
                 </Box>
-                
+
                 <TextField
                   fullWidth
                   label="อีเมล"
                   value={profileData.email}
-                  disabled
+                  onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
+                  disabled={!isEditing}
                   variant="outlined"
-                  size="small"
                   InputProps={{
                     startAdornment: <Email sx={{ mr: 1.5, color: '#999', fontSize: 18 }} />,
                   }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: 2,
-                      bgcolor: '#FAFAFA',
                       fontFamily: 'Prompt, sans-serif',
+                      bgcolor: isEditing ? '#FFFFFF' : '#F8F8F8',
                     },
                     '& .MuiInputLabel-root': { 
                       fontFamily: 'Prompt, sans-serif',
                     },
                   }}
                 />
-                
+
                 <TextField
                   fullWidth
-                  label="หมายเลขโทรศัพท์"
+                  label="เบอร์โทรศัพท์"
                   value={profileData.phone}
                   onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
                   disabled={!isEditing}
                   variant="outlined"
-                  size="small"
                   InputProps={{
                     startAdornment: <Phone sx={{ mr: 1.5, color: '#999', fontSize: 18 }} />,
                   }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: 2,
-                      bgcolor: isEditing ? '#FFFFFF' : '#FAFAFA',
                       fontFamily: 'Prompt, sans-serif',
+                      bgcolor: isEditing ? '#FFFFFF' : '#F8F8F8',
                     },
                     '& .MuiInputLabel-root': { 
                       fontFamily: 'Prompt, sans-serif',
                     },
                   }}
                 />
-                
+
                 <TextField
                   fullWidth
                   label="ที่อยู่"
@@ -742,7 +620,7 @@ export default function SimpleProfileClient() {
                   rows={2}
                   InputProps={{
                     startAdornment: <LocationOn sx={{ mr: 1.5, color: '#999', fontSize: 18, alignSelf: 'flex-start', mt: 0.5 }} />,
-                    endAdornment: isEditing && (
+                    endAdornment: isEditing ? (
                       <IconButton
                         onClick={handleGetCurrentLocation}
                         disabled={isGettingLocation}
@@ -759,13 +637,13 @@ export default function SimpleProfileClient() {
                           <MyLocation sx={{ fontSize: 16 }} />
                         )}
                       </IconButton>
-                    ),
+                    ) : null,
                   }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: 2,
-                      bgcolor: isEditing ? '#FFFFFF' : '#FAFAFA',
                       fontFamily: 'Prompt, sans-serif',
+                      bgcolor: isEditing ? '#FFFFFF' : '#F8F8F8',
                     },
                     '& .MuiInputLabel-root': { 
                       fontFamily: 'Prompt, sans-serif',
@@ -949,25 +827,6 @@ export default function SimpleProfileClient() {
         accept="image/*"
         style={{ display: 'none' }}
       />
-
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={handleSnackbarClose} 
-          severity={snackbar.severity}
-          sx={{ 
-            width: '100%',
-            fontFamily: 'Prompt, sans-serif',
-          }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
 
       <FooterNavbar />
     </Box>

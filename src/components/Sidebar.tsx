@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   Drawer,
   List,
@@ -34,6 +35,7 @@ interface SidebarProps {
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const menuItems = [
     { text: 'หน้าแรก', icon: <Home />, path: '/' },
     { text: 'ร้านอาหาร', icon: <Restaurant />, path: '/restaurants' },
@@ -58,25 +60,56 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       sx={{
         '& .MuiDrawer-paper': {
           width: 280,
-          bgcolor: '#382c30',
+          bgcolor: '#FFFFFF',
           borderTopRightRadius: 20,
           borderBottomRightRadius: 20,
-          color: 'white',
+          color: '#1A1A1A',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
         },
       }}
     >
-      <Box sx={{ p: 3, bgcolor: 'linear-gradient(135deg, #F8A66E 0%, #F35C76 100%)', color: 'white' }}>
+      <Box sx={{ 
+        p: 3, 
+        bgcolor: '#FAFAFA',
+        borderBottom: '1px solid #F0F0F0',
+      }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Avatar 
-            src="/api/placeholder/50/50" 
-            sx={{ width: 50, height: 50 }}
-          />
+            src={session?.user?.avatar ? `/api/${session.user.avatar}` : undefined}
+            sx={{ 
+              width: 50, 
+              height: 50,
+              bgcolor: '#F8A66E',
+              color: 'white',
+              fontFamily: 'Prompt, sans-serif',
+              fontWeight: 600,
+              border: '2px solid #FFFFFF',
+              boxShadow: '0 2px 8px rgba(248, 166, 110, 0.3)',
+            }}
+          >
+            {session?.user?.name?.charAt(0)?.toUpperCase() || 'U'}
+          </Avatar>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              สวัสดี! 
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontWeight: 600,
+                color: '#1A1A1A',
+                fontFamily: 'Prompt, sans-serif',
+                fontSize: '1rem',
+              }}
+            >
+              สวัสดี{session?.user?.name ? ` ${session.user.name}` : ''}!
             </Typography>
-            <Typography variant="body2" sx={{ opacity: 0.8 }}>
-              ผู้ใช้ CorgiGo
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: '#666',
+                fontFamily: 'Prompt, sans-serif',
+                fontSize: '0.85rem',
+              }}
+            >
+              {session?.user?.email || 'ผู้ใช้ CorgiGo'}
             </Typography>
           </Box>
         </Box>
@@ -91,15 +124,22 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 onClose();
               }}
               sx={{
-                borderRadius: 2,
+                borderRadius: 3,
                 mx: 1,
                 my: 0.5,
+                transition: 'all 0.2s ease',
                 '&:hover': {
-                  bgcolor: 'rgba(248, 166, 110, 0.1)',
+                  bgcolor: '#F8A66E15',
+                  transform: 'translateX(4px)',
+                  boxShadow: '0 2px 8px rgba(248, 166, 110, 0.2)',
                 },
               }}
             >
-              <ListItemIcon sx={{ color: '#F8A66E', minWidth: 40 }}>
+              <ListItemIcon sx={{ 
+                color: '#F8A66E', 
+                minWidth: 40,
+                transition: 'all 0.2s ease',
+              }}>
                 {item.icon}
               </ListItemIcon>
               <ListItemText 
@@ -107,7 +147,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 primaryTypographyProps={{
                   fontWeight: 500,
                   fontSize: '0.95rem',
-                  color: 'white',
+                  color: '#1A1A1A',
+                  fontFamily: 'Prompt, sans-serif',
                 }}
               />
             </ListItemButton>
@@ -115,7 +156,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         ))}
       </List>
 
-      <Divider />
+      <Divider sx={{ borderColor: '#F0F0F0' }} />
 
       <List sx={{ px: 1, py: 1 }}>
         {bottomItems.map((item) => (
@@ -126,15 +167,22 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 onClose();
               }}
               sx={{
-                borderRadius: 2,
+                borderRadius: 3,
                 mx: 1,
                 my: 0.5,
+                transition: 'all 0.2s ease',
                 '&:hover': {
-                  bgcolor: 'rgba(248, 166, 110, 0.1)',
+                  bgcolor: '#F35C7615',
+                  transform: 'translateX(4px)',
+                  boxShadow: '0 2px 8px rgba(243, 92, 118, 0.2)',
                 },
               }}
             >
-              <ListItemIcon sx={{ color: '#F35C76', minWidth: 40 }}>
+              <ListItemIcon sx={{ 
+                color: '#F35C76', 
+                minWidth: 40,
+                transition: 'all 0.2s ease',
+              }}>
                 {item.icon}
               </ListItemIcon>
               <ListItemText 
@@ -142,7 +190,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 primaryTypographyProps={{
                   fontWeight: 500,
                   fontSize: '0.95rem',
-                  color: 'white',
+                  color: '#1A1A1A',
+                  fontFamily: 'Prompt, sans-serif',
                 }}
               />
             </ListItemButton>

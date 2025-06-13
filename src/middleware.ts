@@ -32,7 +32,9 @@ export default withAuth(
       }
 
       // Restaurant routes (except register page)
-      if (path.startsWith('/restaurant') && path !== '/restaurant/register' && 
+      if (path.startsWith('/restaurant') && 
+          path !== '/restaurant/register' && 
+          path !== '/restaurant/pending' &&
           userRole !== 'RESTAURANT' && !userRoles.includes('RESTAURANT')) {
         return NextResponse.redirect(new URL('/unauthorized', req.url));
       }

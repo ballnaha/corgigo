@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Box,
   Typography,
   Button,
-  Grid,
   Card,
   CardContent,
   AppBar,
@@ -63,6 +62,11 @@ function TabPanel(props: TabPanelProps) {
 export default function RestaurantPage() {
   const [tabValue, setTabValue] = useState(0);
   const [isOpen, setIsOpen] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Mock data
   const restaurantStats = {
@@ -133,6 +137,20 @@ export default function RestaurantPage() {
     console.log('Reject order:', orderId);
   };
 
+  if (!mounted) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontSize: '18px'
+      }}>
+        กำลังโหลด...
+      </Box>
+    );
+  }
+
   return (
     <>
       {/* Header */}
@@ -187,8 +205,8 @@ export default function RestaurantPage() {
           </Card>
 
           {/* Statistics */}
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={6} sm={2.4}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+            <Box sx={{ flex: '1 1 200px', minWidth: 0 }}>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <Star sx={{ color: '#FFD700', fontSize: 30, mb: 1 }} />
                 <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
@@ -198,8 +216,8 @@ export default function RestaurantPage() {
                   คะแนน
                 </Typography>
               </Paper>
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
+            </Box>
+            <Box sx={{ flex: '1 1 200px', minWidth: 0 }}>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <Assignment sx={{ color: 'primary.main', fontSize: 30, mb: 1 }} />
                 <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
@@ -209,8 +227,8 @@ export default function RestaurantPage() {
                   ออเดอร์ทั้งหมด
                 </Typography>
               </Paper>
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
+            </Box>
+            <Box sx={{ flex: '1 1 200px', minWidth: 0 }}>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <AttachMoney sx={{ color: 'success.main', fontSize: 30, mb: 1 }} />
                 <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
@@ -220,8 +238,8 @@ export default function RestaurantPage() {
                   รายได้วันนี้
                 </Typography>
               </Paper>
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
+            </Box>
+            <Box sx={{ flex: '1 1 200px', minWidth: 0 }}>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <BarChart sx={{ color: 'info.main', fontSize: 30, mb: 1 }} />
                 <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
@@ -231,8 +249,8 @@ export default function RestaurantPage() {
                   รายได้เดือนนี้
                 </Typography>
               </Paper>
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
+            </Box>
+            <Box sx={{ flex: '1 1 200px', minWidth: 0 }}>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <ShoppingCart sx={{ color: 'warning.main', fontSize: 30, mb: 1 }} />
                 <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
@@ -242,8 +260,8 @@ export default function RestaurantPage() {
                   รอดำเนินการ
                 </Typography>
               </Paper>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
 
           {/* Tabs */}
           <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
@@ -329,9 +347,9 @@ export default function RestaurantPage() {
               </Button>
             </Box>
             
-            <Grid container spacing={2}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
               {menuItems.map((item) => (
-                <Grid item xs={12} sm={6} md={4} key={item.id}>
+                <Box key={item.id} sx={{ flex: '1 1 300px', minWidth: 0 }}>
                   <Card>
                     <CardContent>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
@@ -358,9 +376,9 @@ export default function RestaurantPage() {
                       </Box>
                     </CardContent>
                   </Card>
-                </Grid>
+                </Box>
               ))}
-            </Grid>
+            </Box>
           </TabPanel>
 
           <TabPanel value={tabValue} index={2}>
@@ -368,8 +386,8 @@ export default function RestaurantPage() {
             <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
               รายงานยอดขาย
             </Typography>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+              <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
@@ -383,8 +401,8 @@ export default function RestaurantPage() {
                     </Typography>
                   </CardContent>
                 </Card>
-              </Grid>
-              <Grid item xs={12} md={6}>
+              </Box>
+              <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
@@ -398,8 +416,8 @@ export default function RestaurantPage() {
                     </Typography>
                   </CardContent>
                 </Card>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
           </TabPanel>
         </Container>
       </Box>

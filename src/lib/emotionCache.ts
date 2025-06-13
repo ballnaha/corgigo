@@ -15,5 +15,9 @@ export default function createEmotionCache() {
     insertionPoint = emotionInsertionPoint ?? undefined;
   }
 
-  return createCache({ key: 'mui-style', insertionPoint });
+  return createCache({ 
+    key: 'mui-style', 
+    insertionPoint,
+    prepend: true, // This ensures MUI styles are loaded first
+  });
 } 

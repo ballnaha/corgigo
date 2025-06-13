@@ -20,6 +20,9 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         name: true,
+        description: true,
+        address: true,
+        phone: true,
         status: true,
         createdAt: true,
         approvedAt: true,
@@ -40,6 +43,9 @@ export async function GET(request: NextRequest) {
       restaurant: {
         id: restaurant.id,
         name: restaurant.name,
+        description: restaurant.description,
+        address: restaurant.address,
+        phone: restaurant.phone,
         status: restaurant.status,
         submittedAt: restaurant.createdAt.toISOString(),
         approvedAt: restaurant.approvedAt?.toISOString(),

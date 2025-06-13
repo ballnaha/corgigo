@@ -5,141 +5,181 @@ import { useRouter, usePathname } from 'next/navigation';
 import {
   BottomNavigation,
   BottomNavigationAction,
-  Paper,
   Badge,
+  Box,
 } from '@mui/material';
 import {
   Home,
   Search,
-  ShoppingCart,
   FavoriteOutlined,
+  ShoppingCartOutlined,
   Person,
 } from '@mui/icons-material';
 
-const FooterNavbar = () => {
+interface FooterNavbarProps {
+  cartCount?: number;
+}
+
+const FooterNavbar = ({ cartCount = 0 }: FooterNavbarProps) => {
   const router = useRouter();
   const pathname = usePathname();
 
-  const navItems = [
-    {
-      label: 'หน้าหลัก',
-      icon: <Home />,
-      path: '/',
-      value: 'home',
-    },
-    {
-      label: 'ค้นหา',
-      icon: <Search />,
-      path: '/search',
-      value: 'search',
-    },
-    {
-      label: 'ตะกร้า',
-      icon: (
-        <Badge 
-          badgeContent={2} 
-          sx={{
-            '& .MuiBadge-badge': {
-              bgcolor: '#F35C76',
-              color: '#FFFFFF',
-              fontSize: '0.6rem',
-              fontFamily: 'Prompt, sans-serif',
-              fontWeight: 600,
-              minWidth: '16px',
-              height: '16px',
-              top: -2,
-              right: -2,
-            },
-          }}
-        >
-          <ShoppingCart />
-        </Badge>
-      ),
-      path: '/cart',
-      value: 'cart',
-    },
-    {
-      label: 'รายการโปรด',
-      icon: <FavoriteOutlined />,
-      path: '/favorites',
-      value: 'favorites',
-    },
-    {
-      label: 'โปรไฟล์',
-      icon: <Person />,
-      path: '/profile',
-      value: 'profile',
-    },
-  ];
+  // กำหนดเส้นทางที่ไม่ควรแสดง FooterNavbar
+  const hiddenPaths = ['/auth/login', '/auth/register', '/admin', '/onboarding'];
+  const shouldHide = hiddenPaths.some(path => pathname?.startsWith(path));
 
-  // Get current value based on pathname
-  const getCurrentValue = () => {
-    const item = navItems.find(item => item.path === pathname);
-    return item ? item.value : 'home';
+  if (shouldHide) {
+    return null;
+  }
+
+  // กำหนดค่า active tab ตาม pathname
+  const getActiveTab = () => {
+    if (pathname === '/') return 0;
+    if (pathname?.startsWith('/search')) return 1;
+    if (pathname?.startsWith('/cart')) return 2;
+    if (pathname?.startsWith('/profile')) return 3;
+    return 0; // default to home
   };
 
-  const handleChange = (event: React.SyntheticEvent, newValue: string) => {
-    const item = navItems.find(item => item.value === newValue);
-    if (item) {
-      router.push(item.path);
+  const handleNavigation = (event: React.SyntheticEvent, newValue: number) => {
+    switch (newValue) {
+      case 0:
+        router.push('/');
+        break;
+      case 1:
+        router.push('/search');
+        break;
+      case 2:
+        router.push('/cart');
+        break;
+      case 3:
+        router.push('/profile');
+        break;
     }
   };
 
   return (
-    <Paper 
-      sx={{ 
-        position: 'fixed', 
-        bottom: 0, 
-        left: 0, 
+    <Box
+      sx={{
+        position: 'sticky',
+        bottom: 0,
+        left: 0,
         right: 0,
-        zIndex: 1000,
-        borderTop: '1px solid #E8E8E8',
-        borderRadius: 0,
-      }} 
-      elevation={3}
+        zIndex: 1200,
+        borderRadius: '20px 20px 0 0',
+        backgroundColor: '#FFFFFF',
+        borderTop: '1px solid #F0F0F0',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        // เอา shadow ออกหมด
+        boxShadow: 'none',
+        // Sticky positioning เหมือน AppHeader
+        marginTop: 'auto',
+      }}
     >
       <BottomNavigation
-        value={getCurrentValue()}
-        onChange={handleChange}
+        value={getActiveTab()}
+        onChange={handleNavigation}
         sx={{
-          height: 64,
-          bgcolor: '#FFFFFF',
+          backgroundColor: 'transparent',
+          borderRadius: '20px 20px 0 0',
+          height: 80,
+          paddingTop: 1,
+          paddingBottom: 1,
+          // เอาเงาสีเหลืองออกหมด
+          boxShadow: 'none !important',
+          border: 'none',
           '& .MuiBottomNavigationAction-root': {
-            fontFamily: 'Prompt, sans-serif',
-            fontSize: '0.75rem',
             minWidth: 'auto',
-            padding: '6px 12px 8px',
+            padding: '12px 4px',
+            margin: '0',
+            transition: 'all 0.25s ease',
+            color: '#1A1A1A',
+            backgroundColor: 'transparent !important',
+            boxShadow: 'none !important',
+            display: 'flex',
+            flexDirection: 'column',
             '&.Mui-selected': {
               color: '#F8A66E',
+              backgroundColor: 'transparent !important',
+              boxShadow: 'none !important',
               '& .MuiBottomNavigationAction-label': {
-                fontSize: '0.75rem',
+                fontSize: '0.8rem',
                 fontWeight: 600,
+                fontFamily: 'Prompt, sans-serif',
+                marginTop: 1,
+                color: '#F8A66E',
+                display: 'block !important',
+                opacity: '1 !important',
               },
             },
-            '&:not(.Mui-selected)': {
-              color: '#9AA0A6',
+            '&:hover:not(.Mui-selected)': {
+              color: '#F8A66E',
+              opacity: 0.7,
+              backgroundColor: 'transparent !important',
+              boxShadow: 'none !important',
+              
+            },
+            '&:hover': {
+              backgroundColor: 'transparent !important',
+              boxShadow: 'none !important',
             },
             '& .MuiBottomNavigationAction-label': {
-              fontSize: '0.7rem',
+              fontSize: '0.8rem',
               fontWeight: 500,
-              marginTop: '4px',
+              fontFamily: 'Prompt, sans-serif',
+              marginTop: 1,
+              transition: 'all 0.25s ease',
+              color: '#1A1A1A',
+              display: 'block !important',
+              opacity: '1 !important',
+              visibility: 'visible !important',
             },
-          },
-          '& .MuiSvgIcon-root': {
-            fontSize: '22px',
           },
         }}
       >
-        {navItems.map((item) => (
-          <BottomNavigationAction
-            key={item.value}
-            label={item.label}
-            value={item.value}
-            icon={item.icon}
-          />
-        ))}
+        <BottomNavigationAction
+          label="หน้าแรก"
+          icon={<Home sx={{ fontSize: 22 }} />}
+        />
+        
+        <BottomNavigationAction
+          label="ค้นหา"
+          icon={<Search sx={{ fontSize: 22 }} />}
+        />
+    
+        
+        <BottomNavigationAction
+          label="ตะกร้า"
+          icon={
+            cartCount > 0 ? (
+              <Badge 
+                badgeContent={cartCount} 
+                color="secondary"
+                sx={{
+                  '& .MuiBadge-badge': {
+                    backgroundColor: '#F35C76',
+                    color: 'white',
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    minWidth: 16,
+                    height: 16,
+                  },
+                }}
+              >
+                <ShoppingCartOutlined sx={{ fontSize: 22 }} />
+              </Badge>
+            ) : (
+              <ShoppingCartOutlined sx={{ fontSize: 22 }} />
+            )
+          }
+        />
+        
+        <BottomNavigationAction
+          label="โปรไฟล์"
+          icon={<Person sx={{ fontSize: 22 }} />}
+        />
       </BottomNavigation>
-    </Paper>
+    </Box>
   );
 };
 

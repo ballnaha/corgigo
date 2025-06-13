@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import RestaurantPage from './client';
+import RestaurantPageWrapper from './RestaurantPageWrapper';
 
 export const metadata: Metadata = {
   title: 'ร้านอาหาร - CorgiGo',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <RestaurantPage />;
+  return <RestaurantPageWrapper />;
 } 

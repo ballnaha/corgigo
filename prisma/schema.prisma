@@ -183,11 +183,29 @@ model Restaurant {
   categories  Category[]
   menuItems   MenuItem[]
   orders      Order[]
+  restaurantDocuments   RestaurantDocument[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   @@map("restaurants")
+}
+
+model RestaurantDocument {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  
+  fileName     String
+  originalName String
+  fileSize     Int
+  fileType     String
+  filePath     String
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  @@map("restaurant_documents")
 }
 
 model Category {

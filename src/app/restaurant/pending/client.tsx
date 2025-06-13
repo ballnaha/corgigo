@@ -14,40 +14,63 @@ import {
   Chip,
   Button,
   alpha,
+  Alert,
+  LinearProgress,
+  IconButton,
 } from '@mui/material';
 import {
   HourglassEmpty,
   CheckCircle,
   Cancel,
-  Store,
   ArrowBack,
   Refresh,
+  Edit,
+  Schedule,
+  Email,
+  Phone,
+  RestaurantMenu,
+  Assignment,
+  Security,
+  LocationOn,
+  Business,
 } from '@mui/icons-material';
 import AppHeader from '@/components/AppHeader';
-import NoSSR from '@/components/NoSSR';
+import FooterNavbar from '@/components/FooterNavbar';
 
 interface RestaurantStatus {
   id: string;
   name: string;
+  description?: string;
+  address: string;
+  phone: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   submittedAt: string;
+  approvedAt?: string;
+  rejectedAt?: string;
   rejectReason?: string;
 }
 
 export default function RestaurantPendingClient() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [restaurant, setRestaurant] = useState<RestaurantStatus | null>(null);
   const [formattedDate, setFormattedDate] = useState<string>('');
+  const [formattedApprovedDate, setFormattedApprovedDate] = useState<string>('');
+  const [formattedRejectedDate, setFormattedRejectedDate] = useState<string>('');
+  const [estimatedTime, setEstimatedTime] = useState<string>('');
+  const [error, setError] = useState<string>('');
+  const [progress, setProgress] = useState(0);
 
   const loadRestaurantStatus = async () => {
     try {
+      setError('');
+      
       const response = await fetch('/api/restaurant/status');
-      if (response.ok) {
         const result = await response.json();
-        if (result.success) {
+      
+      if (response.ok && result.success) {
           setRestaurant(result.restaurant);
           
           // Format date on client side to avoid hydration mismatch
@@ -61,6 +84,55 @@ export default function RestaurantPendingClient() {
               minute: '2-digit',
             });
             setFormattedDate(formatted);
+          
+          // คำนวณเวลาที่ผ่านไปและเวลาที่เหลือ
+          const now = new Date();
+          const diffTime = Math.abs(now.getTime() - date.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          // คำนวณ progress bar
+          const progressPercentage = Math.min((diffDays / 3) * 100, 100);
+          setProgress(progressPercentage);
+          
+          if (diffDays <= 3) {
+            const remainingDays = 3 - diffDays;
+            if (remainingDays > 0) {
+              setEstimatedTime(`อีก ${remainingDays} วัน (โดยประมาณ)`);
+            } else {
+              setEstimatedTime('กำลังตรวจสอบ...');
+            }
+          } else {
+            setEstimatedTime('กำลังตรวจสอบ...');
+          }
+        } else {
+          setEstimatedTime('2-3 วันทำการ');
+          setProgress(0);
+        }
+        
+        // Format approved date
+        if (result.restaurant.approvedAt) {
+          const approvedDate = new Date(result.restaurant.approvedAt);
+          const formattedApproved = approvedDate.toLocaleDateString('th-TH', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          setFormattedApprovedDate(formattedApproved);
+        }
+        
+        // Format rejected date
+        if (result.restaurant.rejectedAt) {
+          const rejectedDate = new Date(result.restaurant.rejectedAt);
+          const formattedRejected = rejectedDate.toLocaleDateString('th-TH', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          setFormattedRejectedDate(formattedRejected);
           }
           
           // ถ้าได้รับการอนุมัติแล้ว ให้ไปหน้าร้านอาหาร
@@ -68,10 +140,17 @@ export default function RestaurantPendingClient() {
             router.push('/restaurant');
             return;
           }
+      } else {
+        // ถ้าไม่พบข้อมูลร้านอาหาร แสดงว่ายังไม่ได้สมัคร
+        if (response.status === 404) {
+          router.push('/restaurant/register');
+          return;
         }
+        setError(result.error || 'ไม่สามารถโหลดข้อมูลได้');
       }
     } catch (error) {
       console.error('Error loading restaurant status:', error);
+      setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -79,35 +158,52 @@ export default function RestaurantPendingClient() {
   };
 
   useEffect(() => {
-    if (session?.user) {
-      loadRestaurantStatus();
+    // รอให้ session โหลดเสร็จก่อน
+    if (sessionStatus === 'loading') return;
+    
+    if (!session?.user) {
+      router.push('/auth/login');
+      return;
     }
-  }, [session]);
+
+    // ตรวจสอบว่าผู้ใช้มี restaurant role หรือไม่
+    const userRoles = session.user.roles || [];
+    if (!userRoles.includes('RESTAURANT')) {
+      router.push('/restaurant/register');
+      return;
+    }
+
+      loadRestaurantStatus();
+  }, [session, sessionStatus, router]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadRestaurantStatus();
   };
 
+  const handleEditApplication = () => {
+    router.push('/restaurant/register?edit=true');
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'PENDING':
-        return <HourglassEmpty sx={{ fontSize: 48, color: '#F8A66E' }} />;
+        return <HourglassEmpty sx={{ fontSize: 64, color: '#F8A66E' }} />;
       case 'APPROVED':
-        return <CheckCircle sx={{ fontSize: 48, color: '#4CAF50' }} />;
+        return <CheckCircle sx={{ fontSize: 64, color: '#4CAF50' }} />;
       case 'REJECTED':
-        return <Cancel sx={{ fontSize: 48, color: '#F44336' }} />;
+        return <Cancel sx={{ fontSize: 64, color: '#F35C76' }} />;
       default:
-        return <HourglassEmpty sx={{ fontSize: 48, color: '#999' }} />;
+        return <HourglassEmpty sx={{ fontSize: 64, color: '#999' }} />;
     }
   };
 
   const getStatusChip = (status: string) => {
     const config = {
-      PENDING: { label: 'รอการตรวจสอบ', color: '#F8A66E' },
-      APPROVED: { label: 'อนุมัติแล้ว', color: '#4CAF50' },
-      REJECTED: { label: 'ไม่อนุมัติ', color: '#F44336' },
-      SUSPENDED: { label: 'ระงับการใช้งาน', color: '#999' },
+      PENDING: { label: 'รอการตรวจสอบ', color: '#F8A66E', bgColor: alpha('#F8A66E', 0.1) },
+      APPROVED: { label: 'อนุมัติแล้ว', color: '#4CAF50', bgColor: alpha('#4CAF50', 0.1) },
+      REJECTED: { label: 'ไม่อนุมัติ', color: '#F35C76', bgColor: alpha('#F35C76', 0.1) },
+      SUSPENDED: { label: 'ระงับการใช้งาน', color: '#999', bgColor: alpha('#999', 0.1) },
     };
 
     const statusConfig = config[status as keyof typeof config] || config.PENDING;
@@ -115,12 +211,15 @@ export default function RestaurantPendingClient() {
     return (
       <Chip
         label={statusConfig.label}
+        size="small"
         sx={{
-          bgcolor: alpha(statusConfig.color, 0.1),
+          bgcolor: statusConfig.bgColor,
           color: statusConfig.color,
           fontFamily: 'Prompt, sans-serif',
-          fontWeight: 600,
-          borderRadius: 2,
+          fontWeight: 500,
+          height: 28,
+          '& .MuiChip-icon': { color: statusConfig.color },
+          border: `1px solid ${alpha(statusConfig.color, 0.2)}`,
         }}
       />
     );
@@ -129,7 +228,7 @@ export default function RestaurantPendingClient() {
   const getStatusMessage = (status: string) => {
     switch (status) {
       case 'PENDING':
-        return 'เรากำลังตรวจสอบข้อมูลร้านของคุณ จะแจ้งผลภายใน 2-3 วันทำการ';
+        return 'เรากำลังตรวจสอบข้อมูลร้านของคุณอย่างละเอียด จะแจ้งผลภายใน 2-3 วันทำการ';
       case 'APPROVED':
         return 'ยินดีด้วย! ร้านของคุณได้รับการอนุมัติแล้ว สามารถเริ่มรับออเดอร์ได้เลย';
       case 'REJECTED':
@@ -141,217 +240,464 @@ export default function RestaurantPendingClient() {
     }
   };
 
-  if (!session) {
-    router.push('/auth/login');
-    return null;
-  }
-
-  if (loading) {
+  // แสดง loading ขณะรอ session
+  if (sessionStatus === 'loading' || loading) {
     return (
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'center', 
         alignItems: 'center', 
         minHeight: '100vh',
-        bgcolor: '#FAFAFA',
+        backgroundColor: '#FAFAFA',
       }}>
         <CircularProgress sx={{ color: '#F8A66E' }} size={40} />
       </Box>
     );
   }
 
+  // แสดง error ถ้ามี
+  if (error) {
+    return (
+      <Box sx={{ 
+        backgroundColor: '#FAFAFA',
+        minHeight: '100vh',
+        fontFamily: 'Prompt, sans-serif',
+        paddingBottom: '80px',
+      }}>
+        <AppHeader />
+        <Container maxWidth="sm" sx={{ py: 4, px: 3 }}>
+          <Alert 
+            severity="error" 
+            sx={{ 
+              mb: 3,
+              borderRadius: 3,
+              fontFamily: 'Prompt, sans-serif',
+            }}
+          >
+            {error}
+          </Alert>
+          <Button 
+            variant="contained" 
+            onClick={() => router.push('/restaurant/register')}
+            sx={{ 
+              bgcolor: '#F8A66E',
+              borderRadius: 2,
+              py: 1,
+              fontFamily: 'Prompt, sans-serif',
+              fontWeight: 500,
+              textTransform: 'none',
+              '&:hover': {
+                bgcolor: '#E8956E',
+              },
+            }}
+          >
+            สมัครเปิดร้านอาหาร
+          </Button>
+        </Container>
+        <FooterNavbar />
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ 
-      backgroundColor: '#FAFAFA',
+      backgroundColor: '#FFFFFF',
       minHeight: '100vh',
-      paddingBottom: '20px',
+      paddingBottom: '80px',
       fontFamily: 'Prompt, sans-serif',
     }}>
       <AppHeader />
       
-      <Container maxWidth="sm" sx={{ py: 4, px: 2 }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <Button
-            startIcon={<ArrowBack />}
-            onClick={() => router.push('/profile')}
-            sx={{
-              color: '#666',
+      {/* Header Section - Full Width */}
+      <Box
+        sx={{
+          background: 'linear-gradient(180deg, #FFFFFF 0%, #FAFAFA 100%)',
+          pt: 3,
+          pb: 2,
+          px: 2, // ลด padding เหลือเพียง 16px
+          textAlign: 'center',
+          position: 'relative',
+          width: '100%',
+        }}
+      >
+
+          {/* Status Icon */}
+          <Box sx={{ mb: 2 }}>
+            {restaurant && getStatusIcon(restaurant.status)}
+          </Box>
+
+          {/* Restaurant Name */}
+          <Typography 
+            variant="h6" 
+            sx={{ 
               fontFamily: 'Prompt, sans-serif',
-              textTransform: 'none',
+              fontWeight: 600, 
+              color: '#1A1A1A', 
+              mb: 0.5, 
             }}
           >
-            กลับ
-          </Button>
+            {restaurant?.name || 'ร้านของคุณ'}
+          </Typography>
+
+          {/* Status Message */}
+          <Typography 
+            variant="body2" 
+            sx={{
+              fontFamily: 'Prompt, sans-serif',
+              color: '#666', 
+              mb: 2,
+              lineHeight: 1.5,
+            }}
+          >
+            {restaurant && getStatusMessage(restaurant.status)}
+          </Typography>
+          
+          {/* Status Chip */}
+          {restaurant && getStatusChip(restaurant.status)}
+
+          {/* Progress Bar for Pending Status */}
+          {restaurant?.status === 'PENDING' && (
+            <Box sx={{ mt: 2, maxWidth: '300px', mx: 'auto' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 500, color: '#666', fontSize: '0.75rem', fontFamily: 'Prompt, sans-serif' }}>
+                  ความคืบหน้า
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500, color: '#F8A66E', fontSize: '0.75rem', fontFamily: 'Prompt, sans-serif' }}>
+                  {Math.round(progress)}%
+                </Typography>
+              </Box>
+              <LinearProgress 
+                variant="determinate" 
+                value={progress} 
+                sx={{
+                  height: 6,
+                  borderRadius: 3,
+                  bgcolor: alpha('#F8A66E', 0.1),
+                  '& .MuiLinearProgress-bar': {
+                    borderRadius: 3,
+                    bgcolor: '#F8A66E',
+                  }
+                }}
+              />
+            </Box>
+          )}
         </Box>
 
-        {/* Status Card */}
+        {/* Content Section - Full Width */}
+        <Box sx={{ px: 2, pb: 2 }}>
+          {/* Date Information */}
+          {(formattedDate || formattedApprovedDate || formattedRejectedDate) && (
         <Card
           elevation={0}
           sx={{ 
-            borderRadius: 3,
-            border: '1px solid #E8E8E8',
+            borderRadius: { xs: 0, sm: 3 }, // Mobile: ไม่มี border radius, Desktop: มี border radius
+            border: { xs: 'none', sm: '1px solid #E8E8E8' }, // Mobile: ไม่มี border, Desktop: มี border
+            borderTop: { xs: '1px solid #E8E8E8', sm: 'none' }, // Mobile: มี border ด้านบนเท่านั้น
+            borderBottom: { xs: '1px solid #E8E8E8', sm: 'none' }, // Mobile: มี border ด้านล่างเท่านั้น
             bgcolor: '#FFFFFF',
-            overflow: 'visible',
+            mb: { xs: 0, sm: 2 }, // Mobile: ไม่มี margin bottom, Desktop: มี margin
+            mx: { xs: 0, sm: 'auto' }, // Mobile: ไม่มี margin horizontal
           }}
         >
-          <CardContent sx={{ p: 4, textAlign: 'center' }}>
-            {/* Status Icon */}
-            <Box sx={{ mb: 3 }}>
-              {restaurant ? getStatusIcon(restaurant.status) : <Store sx={{ fontSize: 48, color: '#999' }} />}
-            </Box>
-
-            {/* Restaurant Name */}
-            {restaurant && (
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}> {/* Mobile: padding น้อยกว่า, Desktop: padding ปกติ */}
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 2, sm: 3 } }}>
+                  <Schedule sx={{ color: '#666', mr: 1.5, fontSize: 20 }} />
               <Typography 
-                variant="h5" 
+                    variant="subtitle1" 
                 sx={{ 
                   fontFamily: 'Prompt, sans-serif',
                   fontWeight: 600,
                   color: '#1A1A1A',
-                  mb: 2,
-                }}
-              >
-                {restaurant.name}
+                    }}
+                  >
+                    ข้อมูลวันที่
+                  </Typography>
+                </Box>
+                
+                <Stack spacing={{ xs: 2, sm: 2.5 }} > {/* Mobile: spacing น้อยกว่า */}
+                  {formattedDate && (
+                    <Box>
+                      <Typography variant="body2" sx={{ color: '#666', mb: 0.5, fontWeight: 500 , fontFamily: 'Prompt, sans-serif'}}>
+                        วันที่สมัคร
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#1A1A1A' , fontFamily: 'Prompt, sans-serif'}}>
+                        {formattedDate}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {formattedApprovedDate && (
+                    <Box>
+                      <Typography variant="body2" sx={{ color: '#666', mb: 0.5, fontWeight: 500 , fontFamily: 'Prompt, sans-serif'}}>
+                        วันที่อนุมัติ
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#4CAF50' , fontFamily: 'Prompt, sans-serif'}}>
+                        {formattedApprovedDate}
               </Typography>
+                    </Box>
             )}
 
-            {/* Status Chip */}
-            {restaurant && (
-              <Box sx={{ mb: 3 }}>
-                {getStatusChip(restaurant.status)}
+                  {formattedRejectedDate && (
+                    <Box>
+                      <Typography variant="body2" sx={{ color: '#666', mb: 0.5, fontWeight: 500 , fontFamily: 'Prompt, sans-serif'}}>
+                        วันที่ปฏิเสธ
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#F35C76' , fontFamily: 'Prompt, sans-serif'}}>
+                        {formattedRejectedDate}
+                      </Typography>
               </Box>
             )}
 
-            {/* Status Message */}
-            <Typography 
-              variant="body1" 
+                  {restaurant?.status === 'PENDING' && estimatedTime && (
+                    <Box>
+                      <Typography variant="body2" sx={{ color: '#666', mb: 0.5, fontWeight: 500, fontFamily: 'Prompt, sans-serif'}}>
+                        เวลาตรวจสอบโดยประมาณ
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#F8A66E' , fontFamily: 'Prompt, sans-serif'}}>
+                        {estimatedTime}
+                      </Typography>
+                    </Box>
+                  )}
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Restaurant Information */}
+          {restaurant && (
+            <Card 
+              elevation={0}
               sx={{ 
-                fontFamily: 'Prompt, sans-serif',
-                color: '#666',
-                lineHeight: 1.6,
-                mb: 3,
+                borderRadius: 3,
+                border: '1px solid #E8E8E8',
+                bgcolor: '#FFFFFF',
+                mb: 2,
               }}
             >
-              {restaurant ? getStatusMessage(restaurant.status) : 'ไม่พบข้อมูลร้านอาหาร'}
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <RestaurantMenu sx={{ color: '#666', mr: 1.5, fontSize: 20 }} />
+                  <Typography 
+                    variant="subtitle1" 
+                    sx={{ 
+                fontFamily: 'Prompt, sans-serif',
+                      fontWeight: 600, 
+                      color: '#1A1A1A', 
+                    }}
+                  >
+                    ข้อมูลร้านอาหาร
+                  </Typography>
+                </Box>
+                
+                <Stack spacing={2.5}>
+                  <Box>
+                    <Typography variant="body2" sx={{ color: '#666', mb: 0.5, fontWeight: 500, fontFamily: 'Prompt, sans-serif' }}>
+                      ชื่อร้าน
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: '#1A1A1A', fontFamily: 'Prompt, sans-serif' }}>
+                      {restaurant.name}
+                    </Typography>
+                  </Box>
+                  
+                  {restaurant.description && (
+                    <Box>
+                      <Typography variant="body2" sx={{ color: '#666', mb: 0.5, fontWeight: 500, fontFamily: 'Prompt, sans-serif' }}>
+                        คำอธิบาย
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 500, color: '#1A1A1A', lineHeight: 1.5, fontFamily: 'Prompt, sans-serif' }}>
+                        {restaurant.description}
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  <Box>
+                    <Typography variant="body2" sx={{ color: '#666', mb: 0.5, fontWeight: 500, fontFamily: 'Prompt, sans-serif' }}>
+                      ที่อยู่
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 500, color: '#1A1A1A', lineHeight: 1.5, fontFamily: 'Prompt, sans-serif' }}>
+                      {restaurant.address}
             </Typography>
+                  </Box>
+                  
+                  <Box>
+                    <Typography variant="body2" sx={{ color: '#666', mb: 0.5, fontWeight: 500, fontFamily: 'Prompt, sans-serif' }}>
+                      เบอร์โทรศัพท์
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: '#1A1A1A', fontFamily: 'Prompt, sans-serif' }}>
+                      {restaurant.phone}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
 
             {/* Reject Reason */}
             {restaurant?.status === 'REJECTED' && restaurant.rejectReason && (
-              <Box 
+            <Card 
+              elevation={0}
                 sx={{ 
-                  bgcolor: alpha('#F44336', 0.1),
-                  border: `1px solid ${alpha('#F44336', 0.2)}`,
-                  borderRadius: 2,
-                  p: 2,
-                  mb: 3,
-                }}
-              >
+                borderRadius: 3,
+                border: '1px solid #F35C76',
+                bgcolor: alpha('#F35C76', 0.05),
+                mb: 2,
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <Cancel sx={{ color: '#F35C76', mr: 1.5, fontSize: 20 }} />
                 <Typography 
-                  variant="subtitle2" 
+                    variant="subtitle1" 
                   sx={{ 
                     fontFamily: 'Prompt, sans-serif',
                     fontWeight: 600,
-                    color: '#F44336',
-                    mb: 1,
+                      color: '#F35C76', 
                   }}
                 >
-                  เหตุผลที่ไม่อนุมัติ:
-                </Typography>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    fontFamily: 'Prompt, sans-serif',
-                    color: '#F44336',
-                  }}
-                >
+                    เหตุผลในการปฏิเสธ
+                  </Typography>
+                </Box>
+                <Typography variant="body1" sx={{ fontWeight: 500, color: '#1A1A1A', lineHeight: 1.5, fontFamily: 'Prompt, sans-serif' }}>
                   {restaurant.rejectReason}
                 </Typography>
-              </Box>
-            )}
+              </CardContent>
+            </Card>
+          )}
 
-            {/* Submitted Date */}
-            {restaurant && formattedDate && (
-              <NoSSR>
+          {/* Review Process Information */}
+          {restaurant?.status === 'PENDING' && (
+            <Card 
+              elevation={0}
+              sx={{ 
+                borderRadius: 3,
+                border: '1px solid #E8E8E8',
+                bgcolor: '#FFFFFF',
+                mb: 2,
+              }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <Assignment sx={{ color: '#666', mr: 1.5, fontSize: 20 }} />
                 <Typography 
-                  variant="body2" 
+                    variant="subtitle1" 
                   sx={{ 
                     fontFamily: 'Prompt, sans-serif',
-                    color: '#999',
-                    mb: 3,
+                      fontWeight: 600, 
+                      color: '#1A1A1A', 
                   }}
                 >
-                  ส่งคำขอเมื่อ: {formattedDate}
+                    สิ่งที่เรากำลังตรวจสอบ
+                  </Typography>
+                </Box>
+                
+                <Stack spacing={2}>
+                  {[
+                    { icon: <Security />, title: 'ความถูกต้องของข้อมูลร้านอาหาร' },
+                    { icon: <Assignment />, title: 'เอกสารประกอบการสมัคร' },
+                    { icon: <LocationOn />, title: 'ความเหมาะสมของสถานที่ตั้ง' },
+                    { icon: <Business />, title: 'การปฏิบัติตามกฎระเบียบด้านอาหาร' },
+                  ].map((item, index) => (
+                    <Box key={index} sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box sx={{ 
+                        color: '#F8A66E', 
+                        mr: 2,
+                        p: 0.5,
+                        borderRadius: 1,
+                        bgcolor: alpha('#F8A66E', 0.1),
+                      }}>
+                        {item.icon}
+                      </Box>
+                      <Typography variant="body2" sx={{ fontWeight: 500, color: '#666', fontFamily: 'Prompt, sans-serif' }}>
+                        {item.title}
                 </Typography>
-              </NoSSR>
+              </Box>
+                  ))}
+                </Stack>
+              </CardContent>
+            </Card>
             )}
 
+          {/* Contact Information */}
+          <Card 
+            elevation={0}
+            sx={{ 
+              borderRadius: 3,
+              border: '1px solid #E8E8E8',
+              bgcolor: '#FFFFFF',
+              mb: 2,
+            }}
+          >
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                <Phone sx={{ color: '#666', mr: 1.5, fontSize: 20 }} />
+                <Typography 
+                  variant="subtitle1" 
+                  sx={{ 
+                    fontFamily: 'Prompt, sans-serif',
+                    fontWeight: 600, 
+                    color: '#1A1A1A', 
+                  }}
+                >
+                  ติดต่อเรา
+                </Typography>
+              </Box>
+              
+              <Stack spacing={2}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Email sx={{ color: '#F8A66E', mr: 2, fontSize: 18 }} />
+                  <Box>
+                    <Typography variant="body2" sx={{ color: '#666', fontSize: '0.75rem', fontFamily: 'Prompt, sans-serif' }}>
+                      อีเมล
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#F8A66E', fontFamily: 'Prompt, sans-serif' }}>
+                      support@corgigo.com
+                    </Typography>
+                  </Box>
+                </Box>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Phone sx={{ color: '#F8A66E', mr: 2, fontSize: 18 }} />
+                  <Box>
+                    <Typography variant="body2" sx={{ color: '#666', fontSize: '0.75rem', fontFamily: 'Prompt, sans-serif' }}>
+                      โทรศัพท์
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#F8A66E', fontFamily: 'Prompt, sans-serif' }}>
+                      02-123-4567
+                    </Typography>
+                  </Box>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+
             {/* Action Buttons */}
-            <Stack spacing={2}>
+          {(restaurant?.status === 'PENDING' || restaurant?.status === 'REJECTED') && (
+            <Box sx={{ mt: 3 }}>
               <Button
-                variant="outlined"
-                startIcon={refreshing ? <CircularProgress size={16} /> : <Refresh />}
-                onClick={handleRefresh}
-                disabled={refreshing}
+                variant="contained"
+                startIcon={<Edit />}
+                onClick={handleEditApplication}
+                fullWidth
                 sx={{
-                  borderColor: '#F8A66E',
-                  color: '#F8A66E',
+                  bgcolor: '#F8A66E',
+                  color: '#FFFFFF',
                   fontFamily: 'Prompt, sans-serif',
                   fontWeight: 500,
                   borderRadius: 2,
+                  py: 1.5,
                   textTransform: 'none',
                   '&:hover': {
-                    bgcolor: alpha('#F8A66E', 0.1),
-                    borderColor: '#F8A66E',
+                    bgcolor: '#E8956E',
                   },
                 }}
               >
-                {refreshing ? 'กำลังโหลด...' : 'รีเฟรชสถานะ'}
+                {restaurant?.status === 'REJECTED' ? 'แก้ไขและส่งใหม่' : 'แก้ไขใบสมัคร'}
               </Button>
-
-              {restaurant?.status === 'REJECTED' && (
-                <Button
-                  variant="contained"
-                  onClick={() => router.push('/restaurant/register')}
-                  sx={{
-                    bgcolor: '#F8A66E',
-                    color: '#FFFFFF',
-                    fontFamily: 'Prompt, sans-serif',
-                    fontWeight: 500,
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    '&:hover': {
-                      bgcolor: '#E8956E',
-                    },
-                  }}
-                >
-                  สมัครใหม่
-                </Button>
+            </Box>
               )}
+        </Box>
 
-              {restaurant?.status === 'APPROVED' && (
-                <Button
-                  variant="contained"
-                  onClick={() => router.push('/restaurant')}
-                  sx={{
-                    bgcolor: '#4CAF50',
-                    color: '#FFFFFF',
-                    fontFamily: 'Prompt, sans-serif',
-                    fontWeight: 500,
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    '&:hover': {
-                      bgcolor: '#45A049',
-                    },
-                  }}
-                >
-                  ไปหน้าจัดการร้าน
-                </Button>
-              )}
-            </Stack>
-          </CardContent>
-        </Card>
-      </Container>
+      <FooterNavbar />
     </Box>
   );
 } 

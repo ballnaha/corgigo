@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --foreground-rgb: 56, 44, 48;
+  --background-start-rgb: 254, 254, 254;
+  --background-end-rgb: 254, 254, 254;
   
   /* CorgiGo Theme Variables */
   --primary-color: #382c30;
@@ -29,9 +29,9 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    --foreground-rgb: 56, 44, 48;
+    --background-start-rgb: 254, 254, 254;
+    --background-end-rgb: 254, 254, 254;
   }
 }
 
@@ -55,13 +55,8 @@ html, body {
   /* สำหรับ mobile viewport height */
   height: 100vh; /* fallback */
   height: 100dvh; /* dynamic viewport height */
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  color: var(--text-color);
+  background-color: var(--background-color);
   font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -98,9 +93,10 @@ html, body {
 
 /* Safe area for mobile devices - ใช้ในแต่ละ component แทน */
 
-/* Prevent overscroll */
+/* Allow pull-to-refresh on mobile */
 html {
-  overscroll-behavior: none;
+  overscroll-behavior-x: none; /* ป้องกัน horizontal overscroll */
+  overscroll-behavior-y: auto; /* อนุญาต vertical overscroll สำหรับ pull-to-refresh */
 }
 
 /* Smooth height transitions for mobile */
@@ -125,6 +121,78 @@ h1, h2, h3, h4, h5, h6 {
 
 p, span, div {
   font-family: 'Prompt', sans-serif;
+}
+
+/* Mobile-First Utility Classes */
+.mobile-full-width {
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.mobile-minimal-padding {
+  padding: 0.5rem !important;
+}
+
+.mobile-no-margin {
+  margin: 0 !important;
+}
+
+.mobile-edge-to-edge {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+}
+
+.mobile-content-padding {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.mobile-section-spacing {
+  margin-bottom: 0.75rem;
+}
+
+/* สำหรับ cards ที่ต้องการให้เต็มหน้าจอ */
+.mobile-full-card {
+  border-radius: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  margin-left: calc(-50vw + 50%) !important;
+  width: 100vw !important;
+}
+
+/* หรือใช้ card แบบมี border radius เฉพาะมุม */
+.mobile-card-minimal {
+  border-radius: 12px 12px 0 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+@media (max-width: 768px) {
+  /* Override container max-width for mobile */
+  .container-override {
+    max-width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  
+  /* Full width buttons on mobile */
+  .mobile-full-button {
+    width: 100% !important;
+    border-radius: 0 !important;
+    margin-left: calc(-50vw + 50%) !important;
+    width: 100vw !important;
+  }
+  
+  /* Reduce spacing on mobile */
+  .mobile-compact {
+    padding: 0.5rem !important;
+    margin: 0.25rem 0 !important;
+  }
 }
 
 /* NoSSR Fallback Styles */
@@ -161,4 +229,9 @@ p, span, div {
 
 .mui-fixed.mui-loaded {
   visibility: visible;
+}
+
+/* Override สำหรับหน้าที่ไม่ต้องการ footer spacing */
+.no-footer-padding {
+  padding-bottom: 0 !important;
 }
