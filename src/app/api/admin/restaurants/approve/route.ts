@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getThailandNow } from '@/lib/timezone';
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,14 +66,14 @@ export async function POST(request: NextRequest) {
     };
 
     if (action === 'APPROVED') {
-      updateData.approvedAt = new Date();
+      updateData.approvedAt = getThailandNow();
       updateData.approvedBy = session.user.id;
       updateData.isOpen = true; // เปิดร้านเมื่ออนุมัติ
       updateData.rejectedAt = null;
       updateData.rejectedBy = null;
       updateData.rejectReason = null;
     } else {
-      updateData.rejectedAt = new Date();
+      updateData.rejectedAt = getThailandNow();
       updateData.rejectedBy = session.user.id;
       updateData.rejectReason = rejectReason?.trim();
       updateData.isOpen = false;

@@ -9,7 +9,7 @@ export default function CartPage() {
   const router = useRouter();
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#FAFAFA' }}>
+    <Box className="app-container">
       {/* Header */}
       <Box sx={{ 
         bgcolor: 'white',
@@ -18,6 +18,9 @@ export default function CartPage() {
         display: 'flex',
         alignItems: 'center',
         gap: 2,
+        position: 'sticky',
+        top: 0,
+        zIndex: 1100,
       }}>
         <Button
           onClick={() => router.back()}
@@ -41,7 +44,11 @@ export default function CartPage() {
         </Typography>
       </Box>
 
-      {/* Content */}
+      {/* Scrollable Content */}
+      <Box 
+        className="app-content"
+        sx={{ bgcolor: '#FAFAFA' }}
+      >
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Box sx={{ 
           textAlign: 'center',
@@ -93,6 +100,7 @@ export default function CartPage() {
           </Button>
         </Box>
       </Container>
+      </Box>
     </Box>
   );
 } 

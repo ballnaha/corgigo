@@ -68,8 +68,8 @@ model User {
   primaryRole UserRole  @default(CUSTOMER) // หลัก role ที่ใช้ login
   
   status      UserStatus @default(ACTIVE)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime
+  updatedAt   DateTime
 
   // Relations - ทุกคนสามารถมีได้ทุก role
   customer    Customer?
@@ -87,7 +87,7 @@ model UserRoles {
   role   UserRole
   user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  createdAt DateTime @default(now())
+  createdAt DateTime
   
   @@unique([userId, role])
   @@map("user_roles")
@@ -102,8 +102,8 @@ model Customer {
   addresses CustomerAddress[]
   orders    Order[]
   
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime
+  updatedAt DateTime
   
   @@map("customers")
 }
@@ -121,8 +121,8 @@ model CustomerAddress {
   
   orders      Order[]
   
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime
+  updatedAt   DateTime
   
   @@map("customer_addresses")
 }
@@ -147,8 +147,8 @@ model Rider {
   // Relations
   orders        Order[]
   
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime
+  updatedAt     DateTime
   
   @@map("riders")
 }
@@ -185,8 +185,8 @@ model Restaurant {
   orders      Order[]
   restaurantDocuments   RestaurantDocument[]
   
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime
+  updatedAt   DateTime
   
   @@map("restaurants")
 }
@@ -202,8 +202,8 @@ model RestaurantDocument {
   fileType     String
   filePath     String
   
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime
+  updatedAt    DateTime
   
   @@map("restaurant_documents")
 }
@@ -221,8 +221,8 @@ model Category {
   // Relations
   menuItems    MenuItem[]
   
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime
+  updatedAt    DateTime
   
   @@map("categories")
 }
@@ -243,8 +243,8 @@ model MenuItem {
   // Relations
   orderItems   OrderItem[]
   
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime
+  updatedAt    DateTime
   
   @@map("menu_items")
 }
@@ -279,8 +279,8 @@ model Order {
   orderItems        OrderItem[]
   notifications     Notification[]
   
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  createdAt         DateTime
+  updatedAt         DateTime
   
   @@map("orders")
 }
@@ -297,8 +297,8 @@ model OrderItem {
   total      Float    // quantity * price
   notes      String?  // หมายเหตุพิเศษ เช่น ไม่ใส่ผัก
   
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime
+  updatedAt  DateTime
   
   @@map("order_items")
 }
@@ -315,8 +315,8 @@ model Notification {
   isRead    Boolean  @default(false)
   data      Json?    // ข้อมูลเพิ่มเติม
   
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime
+  updatedAt DateTime
   
   @@map("notifications")
 }

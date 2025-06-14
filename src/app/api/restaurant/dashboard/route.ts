@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getThailandNow, toThailandTime } from '@/lib/timezone';
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,15 +61,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // คำนวณสถิติ
-    const today = new Date();
+    // คำนวณสถิติ (ใช้เวลาไทย)
+    const thaiNow = getThailandNow();
+    const today = new Date(thaiNow);
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     // ออเดอร์วันนี้
     const todayOrders = restaurant.orders.filter(order => {
-      const orderDate = new Date(order.createdAt);
+      const orderDate = toThailandTime(order.createdAt);
       return orderDate >= today && orderDate < tomorrow;
     });
 
@@ -83,13 +85,13 @@ export async function GET(request: NextRequest) {
       .reduce((sum, order) => sum + order.total, 0);
 
     // รายได้เดือนนี้
-    const thisMonth = new Date();
+    const thisMonth = new Date(thaiNow);
     thisMonth.setDate(1);
     thisMonth.setHours(0, 0, 0, 0);
     
     const monthlyRevenue = restaurant.orders
       .filter(order => {
-        const orderDate = new Date(order.createdAt);
+        const orderDate = toThailandTime(order.createdAt);
         return orderDate >= thisMonth && !['CANCELLED'].includes(order.status);
       })
       .reduce((sum, order) => sum + order.total, 0);

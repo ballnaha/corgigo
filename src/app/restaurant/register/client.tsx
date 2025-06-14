@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
-  Container,
   Typography,
   Card,
   CardContent,
@@ -38,9 +37,128 @@ import {
   Visibility,
   GetApp,
 } from '@mui/icons-material';
-import AppHeader from '@/components/AppHeader';
+import { styled } from '@mui/material/styles';
+import AppLayout from '@/components/AppLayout';
 import MiniMap from '@/components/MiniMap';
 import { useSnackbar } from '@/contexts/SnackbarContext';
+import FileDropzone from '@/components/FileDropzone';
+
+const theme = {
+  primary: '#382c30',
+  secondary: '#F35C76',
+  accent: '#F8A66E',
+  background: '#FFFFFF',
+  surface: '#FEFEFE',
+  text: '#382c30',
+  textSecondary: '#6B5B5D',
+  textLight: '#A0969A',
+  border: '#F0E6E2',
+  success: '#10B981',
+};
+
+const StyledTextField = styled(TextField)(() => ({
+  '& .MuiOutlinedInput-root': {
+    borderRadius: '8px',
+    backgroundColor: theme.background,
+    fontSize: '1rem',
+    fontFamily: 'Prompt, sans-serif',
+    position: 'relative',
+    overflow: 'hidden',
+    '@media (max-width: 768px)': {
+      fontSize: '16px !important',
+      transition: 'none !important',
+      transform: 'none !important',
+      willChange: 'auto',
+      backfaceVisibility: 'hidden',
+    },
+    '& .MuiOutlinedInput-notchedOutline': {
+      borderColor: '#E0E0E0',
+      borderWidth: '1px',
+      transition: 'border-color 0.2s ease',
+      '@media (max-width: 768px)': {
+        transition: 'none !important',
+      },
+    },
+    '&:hover .MuiOutlinedInput-notchedOutline': {
+      borderColor: theme.accent,
+    },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+      borderColor: theme.accent,
+      borderWidth: '2px',
+    },
+    '&.Mui-focused': {
+      backgroundColor: theme.background,
+      transform: 'none !important',
+      '@media (max-width: 768px)': {
+        transform: 'none !important',
+        transition: 'none !important',
+      },
+    },
+  },
+  '& .MuiInputLabel-root': {
+    fontFamily: 'Prompt, sans-serif',
+    color: '#666',
+    fontSize: '1rem',
+    transform: 'translate(14px, 16px) scale(1)',
+    transition: 'all 0.2s ease',
+    '@media (max-width: 768px)': {
+      fontSize: '16px !important',
+      transition: 'none !important',
+      transform: 'translate(14px, 16px) scale(1) !important',
+      willChange: 'auto',
+    },
+    '&.MuiInputLabel-shrink': {
+      transform: 'translate(14px, -9px) scale(0.75)',
+      backgroundColor: theme.background,
+      padding: '0 8px',
+      '@media (max-width: 768px)': {
+        transform: 'translate(14px, -9px) scale(0.75) !important',
+        transition: 'none !important',
+        
+      },
+    },
+    '&.Mui-focused': {
+      color: theme.accent,
+      '@media (max-width: 768px)': {
+        transition: 'none !important',
+      },
+    },
+  },
+  '& .MuiOutlinedInput-input': {
+    padding: '16px 14px',
+    fontFamily: 'Prompt, sans-serif',
+    '@media (max-width: 768px)': {
+      fontSize: '16px !important',
+      transition: 'none !important',
+      transform: 'none !important',
+      willChange: 'auto',
+      '-webkit-appearance': 'none',
+      '-webkit-tap-highlight-color': 'transparent',
+    },
+    '&:focus': {
+      outline: 'none !important',
+      backgroundColor: 'transparent !important',
+      transform: 'none !important',
+      '@media (max-width: 768px)': {
+        fontSize: '16px !important',
+        zoom: '1 !important',
+      },
+    },
+  },
+  // สำหรับ multiline TextField
+  '& .MuiOutlinedInput-inputMultiline': {
+    padding: '16px 14px',
+    fontFamily: 'Prompt, sans-serif',
+    '@media (max-width: 768px)': {
+      fontSize: '16px !important',
+      transition: 'none !important',
+      transform: 'none !important',
+      willChange: 'auto',
+      '-webkit-appearance': 'none',
+      '-webkit-tap-highlight-color': 'transparent',
+    },
+  },
+}));
 
 interface UploadedFile {
   id: string;
@@ -55,14 +173,16 @@ interface UploadedFile {
 export default function RegisterRestaurantClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isEdit = searchParams.get('edit') === 'true';
+  const isEdit = searchParams?.get('edit') === 'true';
   const { data: session, status, update: updateSession } = useSession();
   const { showSnackbar } = useSnackbar();
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(isEdit);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [justUpdated, setJustUpdated] = useState(false);
+  
   const topRef = useRef<HTMLDivElement>(null);
   
   const [formData, setFormData] = useState({
@@ -76,8 +196,6 @@ export default function RegisterRestaurantClient() {
   
   const [location, setLocation] = useState<{lat: number; lng: number} | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [justUpdated, setJustUpdated] = useState(false); // แสดงสถานะที่เพิ่งอัพเดท
 
   // โหลดข้อมูลเดิมถ้าเป็นการแก้ไข
   useEffect(() => {
@@ -85,6 +203,86 @@ export default function RegisterRestaurantClient() {
       loadExistingData();
     }
   }, [isEdit, session]);
+
+  // ป้องกันการกระพริบเมื่อ keyboard ขึ้นมาใน mobile
+  useEffect(() => {
+    // ตรวจสอบว่าเป็น mobile หรือไม่
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    if (!isMobile) return;
+
+    // เก็บค่า viewport เดิม
+    const originalViewportHeight = window.innerHeight;
+    const originalBodyHeight = document.body.style.height;
+    const originalHtmlHeight = document.documentElement.style.height;
+    
+    // ตั้งค่า viewport meta tag เพื่อป้องกัน zoom
+    const viewport = document.querySelector('meta[name=viewport]') as HTMLMetaElement;
+    const originalViewportContent = viewport?.content || '';
+    
+    if (viewport) {
+      viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    }
+
+    const handleFocus = (e: FocusEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        // ป้องกันการ scroll และ zoom
+        e.target.scrollIntoView = () => {}; // ปิด scrollIntoView
+        
+        // ป้องกัน iOS Safari zoom
+        if (isIOS && viewport) {
+          viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+        }
+        
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          document.body.scrollTop = 0;
+          document.documentElement.scrollTop = 0;
+        }, 50);
+      }
+    };
+
+    const handleBlur = () => {
+      // รีเซ็ต viewport เมื่อ blur
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+        document.body.scrollTop = 0;
+        document.documentElement.scrollTop = 0;
+      }, 100);
+    };
+
+    // เพิ่ม event listeners
+    document.addEventListener('focusin', handleFocus, { passive: false });
+    document.addEventListener('focusout', handleBlur, { passive: false });
+
+    return () => {
+      // รีเซ็ต viewport
+      if (viewport && originalViewportContent) {
+        viewport.content = originalViewportContent;
+      }
+      
+      // ลบ event listeners
+      document.removeEventListener('focusin', handleFocus);
+      document.removeEventListener('focusout', handleBlur);
+    };
+  }, []);
+
+  // Cleanup object URLs เมื่อ component unmount
+  useEffect(() => {
+    return () => {
+      // ล้าง object URLs ทั้งหมดเมื่อ component unmount
+      uploadedFiles.forEach(file => {
+        if (file.url && !file.url.startsWith('/uploads') && file.file) {
+          try {
+            URL.revokeObjectURL(file.url);
+          } catch (error) {
+            console.error('Error revoking object URL:', error);
+          }
+        }
+      });
+    };
+  }, [uploadedFiles]);
 
   const loadExistingData = async () => {
     try {
@@ -139,20 +337,13 @@ export default function RegisterRestaurantClient() {
     }));
   };
 
-  const handleFileSelect = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
+  const handleFileChange = (newFiles: File[]) => {
     // ตรวจสอบไฟล์ก่อนเพิ่มเข้า state
     const validFiles: File[] = [];
     const invalidFiles: string[] = [];
     
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    for (let i = 0; i < newFiles.length; i++) {
+      const file = newFiles[i];
       
       // ตรวจสอบขนาดไฟล์ (ไม่เกิน 15MB)
       if (file.size > 15 * 1024 * 1024) {
@@ -201,24 +392,34 @@ export default function RegisterRestaurantClient() {
     }
 
     // เพิ่มไฟล์เข้า state สำหรับแสดงผล (ไม่อัพโหลดทันที)
-    const newFiles: UploadedFile[] = validFiles.map((file, i) => ({
-      id: Date.now().toString() + i,
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      url: URL.createObjectURL(file),
-      file: file,
-    }));
+    const newUploadedFiles: UploadedFile[] = validFiles.map((file, i) => {
+      // สร้าง object URL สำหรับ preview
+      let previewUrl = '';
+      try {
+        previewUrl = URL.createObjectURL(file);
+      } catch (error) {
+        console.error('Error creating object URL:', error);
+        // ถ้าสร้าง URL ไม่ได้ ให้ใช้ placeholder
+        previewUrl = '';
+      }
+      
+      return {
+        id: Date.now().toString() + i,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        url: previewUrl,
+        file: file,
+      };
+    });
 
-    setUploadedFiles(prev => [...prev, ...newFiles]);
+    setUploadedFiles(prev => [...prev, ...newUploadedFiles]);
     
     // เก็บไฟล์ไว้สำหรับอัพโหลดตอนบันทึก (ทั้งโหมดใหม่และแก้ไข)
     setSelectedFiles(prev => [...prev, ...validFiles]);
 
-    // รีเซ็ต input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    // แสดงข้อความสำเร็จ
+    showSnackbar(`เพิ่มไฟล์ ${validFiles.length} ไฟล์แล้ว`, 'success');
   };
 
   const handleRemoveFile = async (fileId: string) => {
@@ -491,6 +692,13 @@ export default function RegisterRestaurantClient() {
           
           // อัพเดทรายการไฟล์ทั้งหมดจาก response
           if (result.files) {
+            // ล้าง URL.createObjectURL ของไฟล์เก่าที่ยังไม่ได้อัปโหลด
+            uploadedFiles.forEach(file => {
+              if (file.url && !file.url.startsWith('/uploads') && file.file) {
+                URL.revokeObjectURL(file.url);
+              }
+            });
+            
             setUploadedFiles(result.files);
           }
           
@@ -540,8 +748,6 @@ export default function RegisterRestaurantClient() {
     }
   };
 
-
-
   // รอให้ session loading เสร็จก่อน
   if (status === 'loading') {
     return (
@@ -577,58 +783,46 @@ export default function RegisterRestaurantClient() {
   }
 
   return (
-    <Box 
-      ref={topRef}
-      sx={{ 
-        backgroundColor: '#FFFFFF',
-        minHeight: '100vh',
-        paddingBottom: '20px', // ลดลงเพราะ Snackbar ย้ายไปด้านบนแล้ว
-        fontFamily: 'Prompt, sans-serif',
-      }}
+    <AppLayout 
+      hideFooter 
+      showBackOnly
+      backTitle={isEdit ? 'แก้ไขข้อมูลร้านอาหาร' : 'สมัครเปิดร้านอาหาร'}
     >
-      <AppHeader />
-      
-      <Container maxWidth="sm" sx={{ py: 2, px: 2 }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography 
-              variant="h6" 
-              sx={{ 
+      <Box 
+        ref={topRef}
+        sx={{ 
+          py: 2, 
+          px: 2,
+          fontFamily: 'Prompt, sans-serif',
+          
+        }}
+      >
+        {/* Status Chip */}
+        {justUpdated && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+            <Chip
+              label="อัพเดทแล้ว"
+              size="small"
+              sx={{
+                backgroundColor: '#4CAF50',
+                color: 'white',
                 fontFamily: 'Prompt, sans-serif',
-                fontWeight: 600,
-                color: '#1A1A1A',
+                fontSize: '0.75rem',
+                animation: 'pulse 1s ease-in-out infinite alternate',
+                '@keyframes pulse': {
+                  '0%': { opacity: 0.7 },
+                  '100%': { opacity: 1 },
+                },
               }}
-            >
-              {isEdit ? 'แก้ไขข้อมูลร้านอาหาร' : 'สมัครเปิดร้านอาหาร'}
-            </Typography>
-            {justUpdated && (
-              <Chip
-                label="อัพเดทแล้ว"
-                size="small"
-                sx={{
-                  backgroundColor: '#4CAF50',
-                  color: 'white',
-                  fontFamily: 'Prompt, sans-serif',
-                  fontSize: '0.75rem',
-                  animation: 'pulse 1s ease-in-out infinite alternate',
-                  '@keyframes pulse': {
-                    '0%': { opacity: 0.7 },
-                    '100%': { opacity: 1 },
-                  },
-                }}
-              />
-            )}
+            />
           </Box>
-        </Box>
+        )}
 
         {/* Form */}
         <Card 
           elevation={0}
           sx={{ 
-            borderRadius: 3,
-            border: '1px solid #E8E8E8',
+            borderRadius: 3,            
             bgcolor: '#FFFFFF',
           }}
         >
@@ -636,7 +830,7 @@ export default function RegisterRestaurantClient() {
             <form onSubmit={handleSubmit}>
               <Stack spacing={3}>
                 {/* ชื่อร้าน */}
-                <TextField
+                <StyledTextField
                   fullWidth
                   label="ชื่อร้านอาหาร *"
                   value={formData.name}
@@ -645,19 +839,10 @@ export default function RegisterRestaurantClient() {
                   InputProps={{
                     startAdornment: <Store sx={{ mr: 1.5, color: '#999', fontSize: 18 }} />,
                   }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      fontFamily: 'Prompt, sans-serif',
-                    },
-                    '& .MuiInputLabel-root': { 
-                      fontFamily: 'Prompt, sans-serif',
-                    },
-                  }}
                 />
 
                 {/* คำอธิบายร้าน */}
-                <TextField
+                <StyledTextField
                   fullWidth
                   label="คำอธิบายร้าน"
                   value={formData.description}
@@ -668,19 +853,10 @@ export default function RegisterRestaurantClient() {
                   InputProps={{
                     startAdornment: <Description sx={{ mr: 1.5, color: '#999', fontSize: 18, alignSelf: 'flex-start', mt: 0.5 }} />,
                   }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      fontFamily: 'Prompt, sans-serif',
-                    },
-                    '& .MuiInputLabel-root': { 
-                      fontFamily: 'Prompt, sans-serif',
-                    },
-                  }}
                 />
 
                 {/* ที่อยู่ร้าน */}
-                <TextField
+                <StyledTextField
                   fullWidth
                   label="ที่อยู่ร้าน *"
                   value={formData.address}
@@ -704,24 +880,15 @@ export default function RegisterRestaurantClient() {
                         {isGettingLocation ? (
                           <CircularProgress size={16} sx={{ color: '#F8A66E' }} />
                         ) : (
-                          <MyLocation sx={{ fontSize: 16 }} />
+                          <MyLocation sx={{ fontSize: 24 }} />
                         )}
                       </IconButton>
                     ),
                   }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      fontFamily: 'Prompt, sans-serif',
-                    },
-                    '& .MuiInputLabel-root': { 
-                      fontFamily: 'Prompt, sans-serif',
-                    },
-                  }}
                 />
 
                 {/* เบอร์โทรศัพท์ */}
-                <TextField
+                <StyledTextField
                   fullWidth
                   label="เบอร์โทรศัพท์ร้าน *"
                   value={formData.phone}
@@ -730,20 +897,11 @@ export default function RegisterRestaurantClient() {
                   InputProps={{
                     startAdornment: <Phone sx={{ mr: 1.5, color: '#999', fontSize: 18 }} />,
                   }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      fontFamily: 'Prompt, sans-serif',
-                    },
-                    '& .MuiInputLabel-root': { 
-                      fontFamily: 'Prompt, sans-serif',
-                    },
-                  }}
                 />
 
                 {/* เวลาเปิด-ปิด */}
                 <Box sx={{ display: 'flex', gap: 2 }}>
-                  <TextField
+                  <StyledTextField
                     fullWidth
                     label="เวลาเปิด"
                     type="time"
@@ -753,17 +911,8 @@ export default function RegisterRestaurantClient() {
                     InputProps={{
                       startAdornment: <AccessTime sx={{ mr: 1.5, color: '#999', fontSize: 18 }} />,
                     }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        fontFamily: 'Prompt, sans-serif',
-                      },
-                      '& .MuiInputLabel-root': { 
-                        fontFamily: 'Prompt, sans-serif',
-                      },
-                    }}
                   />
-                  <TextField
+                  <StyledTextField
                     fullWidth
                     label="เวลาปิด"
                     type="time"
@@ -773,326 +922,10 @@ export default function RegisterRestaurantClient() {
                     InputProps={{
                       startAdornment: <AccessTime sx={{ mr: 1.5, color: '#999', fontSize: 18 }} />,
                     }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        fontFamily: 'Prompt, sans-serif',
-                      },
-                      '& .MuiInputLabel-root': { 
-                        fontFamily: 'Prompt, sans-serif',
-                      },
-                    }}
                   />
                 </Box>
 
-                {/* การแนบไฟล์ */}
-                <Box>
-                  <Typography 
-                    variant="subtitle2" 
-                    sx={{ 
-                      fontFamily: 'Prompt, sans-serif',
-                      fontWeight: 600,
-                      color: '#1A1A1A',
-                      mb: 2,
-                    }}
-                  >
-                    เอกสารประกอบการสมัคร {uploadedFiles.length > 0 && `(${uploadedFiles.length} ไฟล์)`}
-                    
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontFamily: 'Prompt, sans-serif',
-                      color: '#666',
-                      marginBottom: 2,
-                    }}
-                  >
-                    
-                    <p>1. สำเนาบัตรประชาชน </p>
-                    <p>2. สำเนาสมุดบัญชีธนาคาร (ชื่อเจ้าของต้องตรงกับชื่อผู้สมัคร)</p>
-                  </Typography>
-                  
-                  <Button
-                    variant="outlined"
-                    startIcon={uploadingFiles ? <CircularProgress size={16} /> : <CloudUpload />}
-                    onClick={handleFileSelect}
-                    disabled={uploadingFiles}
-                    sx={{
-                      borderColor: '#F8A66E',
-                      color: '#F8A66E',
-                      fontFamily: 'Prompt, sans-serif',
-                      fontWeight: 500,
-                      borderRadius: 2,
-                      py: 1,
-                      textTransform: 'none',
-                      '&:hover': {
-                        borderColor: '#E8956E',
-                        bgcolor: alpha('#F8A66E', 0.04),
-                      },
-                    }}
-                  >
-                    {uploadingFiles ? 'กำลังอัพโหลด...' : 'เลือกไฟล์'}
-                  </Button>
-                  
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      display: 'block',
-                      mt: 1,
-                      color: '#666',
-                      fontFamily: 'Prompt, sans-serif',
-                    }}
-                  >
-                    รองรับไฟล์: JPG, PNG, PDF, DOC, DOCX, XLS, XLSX (ไม่เกิน 15MB ต่อไฟล์)
-                  </Typography>
-
-                  {/* สรุปเอกสารที่อัพโหลด */}
-                  {uploadedFiles.length > 0 && (
-                    <Box sx={{ 
-                      mt: 2, 
-                      mb: 2,
-                      p: 2,
-                      bgcolor: alpha('#2196F3', 0.05),
-                      border: `1px solid ${alpha('#2196F3', 0.2)}`,
-                      borderRadius: 2
-                    }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, fontFamily: 'Prompt, sans-serif' }}>
-                        เอกสารที่แนบแล้ว:
-                      </Typography>
-                      <Box component="ul" sx={{ m: 0, pl: 2 }}>
-                        {uploadedFiles.map((file, index) => (
-                          <Typography 
-                            key={file.id}
-                            component="li" 
-                            variant="body2" 
-                            sx={{ mb: 0.5, fontFamily: 'Prompt, sans-serif' }}
-                          >
-                            {file.name} ({formatFileSize(file.size)})
-                          </Typography>
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-
-                  {/* รายการไฟล์ที่อัพโหลด */}
-                  {uploadedFiles.length > 0 && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          fontFamily: 'Prompt, sans-serif',
-                          fontWeight: 600,
-                          color: '#1A1A1A',
-                          mb: 1,
-                        }}
-                      >
-                        จัดการไฟล์ ({uploadedFiles.length})
-                      </Typography>
-                      <List dense>
-                        {uploadedFiles.map((file) => {
-                          const isImage = file.type.startsWith('image/');
-                          const isPdf = file.type === 'application/pdf';
-                          const isWord = file.type === 'application/msword' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-                          const isExcel = file.type === 'application/vnd.ms-excel' || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-                          
-                          return (
-                            <ListItem 
-                              key={file.id}
-                              sx={{
-                                bgcolor: alpha('#F8A66E', 0.05),
-                                borderRadius: 2,
-                                mb: 1,
-                                border: `1px solid ${alpha('#F8A66E', 0.2)}`,
-                                alignItems: 'flex-start',
-                                py: 1.5,
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                              }}
-                            >
-                              <Box sx={{ display: 'flex', alignItems: 'flex-start', flex: 1 }}>
-                                <ListItemIcon sx={{ minWidth: 60, mt: 0.5 }}>
-                                  {isImage ? (
-                                    <Box
-                                      component="img"
-                                      src={file.url}
-                                      alt={file.name}
-                                      sx={{
-                                        width: 48,
-                                        height: 48,
-                                        borderRadius: 1,
-                                        objectFit: 'cover',
-                                        border: `2px solid ${alpha('#F8A66E', 0.3)}`,
-                                      }}
-                                    />
-                                  ) : isPdf ? (
-                                    <PictureAsPdf sx={{ color: '#F35C76', fontSize: 32 }} />
-                                  ) : isWord ? (
-                                    <Box
-                                      sx={{
-                                        width: 48,
-                                        height: 48,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        bgcolor: '#2B579A',
-                                        borderRadius: 1,
-                                        color: 'white',
-                                        fontSize: '10px',
-                                        fontWeight: 'bold',
-                                      }}
-                                    >
-                                      DOC
-                                    </Box>
-                                  ) : isExcel ? (
-                                    <Box
-                                      sx={{
-                                        width: 48,
-                                        height: 48,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        bgcolor: '#217346',
-                                        borderRadius: 1,
-                                        color: 'white',
-                                        fontSize: '10px',
-                                        fontWeight: 'bold',
-                                      }}
-                                    >
-                                      XLS
-                                    </Box>
-                                  ) : (
-                                    <InsertDriveFile sx={{ color: '#F8A66E', fontSize: 32 }} />
-                                  )}
-                                </ListItemIcon>
-                                <ListItemText
-                                  primary={
-                                    <Typography 
-                                      variant="body2" 
-                                      sx={{ 
-                                        fontFamily: 'Prompt, sans-serif',
-                                        fontWeight: 500,
-                                      }}
-                                    >
-                                      {file.name}
-                                    </Typography>
-                                  }
-                                  secondary={
-                                    <Stack direction="column" spacing={0.5}>
-                                      <Stack direction="row" spacing={1} alignItems="center">
-                                        <Typography 
-                                          variant="caption" 
-                                          sx={{ 
-                                            fontFamily: 'Prompt, sans-serif',
-                                            color: '#666',
-                                          }}
-                                        >
-                                          {formatFileSize(file.size)}
-                                        </Typography>
-                                        {file.createdAt && (
-                                          <Typography 
-                                            variant="caption" 
-                                            sx={{ 
-                                              fontFamily: 'Prompt, sans-serif',
-                                              color: '#999',
-                                            }}
-                                          >
-                                            • {new Date(file.createdAt).toLocaleDateString('th-TH')}
-                                          </Typography>
-                                        )}
-                                      </Stack>
-                                      <Stack direction="row" spacing={1} alignItems="center">
-                                        {isImage && (
-                                          <Chip
-                                            label="รูปภาพ"
-                                            size="small"
-                                            sx={{
-                                              height: 20,
-                                              fontSize: '0.7rem',
-                                              bgcolor: alpha('#4CAF50', 0.1),
-                                              color: '#4CAF50',
-                                              fontFamily: 'Prompt, sans-serif',
-                                            }}
-                                          />
-                                        )}
-                                        {isPdf && (
-                                          <Chip
-                                            label="PDF"
-                                            size="small"
-                                            sx={{
-                                              height: 20,
-                                              fontSize: '0.7rem',
-                                              bgcolor: alpha('#F35C76', 0.1),
-                                              color: '#F35C76',
-                                              fontFamily: 'Prompt, sans-serif',
-                                            }}
-                                          />
-                                        )}
-                                        {isWord && (
-                                          <Chip
-                                            label="DOC"
-                                            size="small"
-                                            sx={{
-                                              height: 20,
-                                              fontSize: '0.7rem',
-                                              bgcolor: alpha('#2B579A', 0.1),
-                                              color: '#2B579A',
-                                              fontFamily: 'Prompt, sans-serif',
-                                            }}
-                                          />
-                                        )}
-                                        {isExcel && (
-                                          <Chip
-                                            label="XLS"
-                                            size="small"
-                                            sx={{
-                                              height: 20,
-                                              fontSize: '0.7rem',
-                                              bgcolor: alpha('#217346', 0.1),
-                                              color: '#217346',
-                                              fontFamily: 'Prompt, sans-serif',
-                                            }}
-                                          />
-                                        )}
-                                      </Stack>
-                                    </Stack>
-                                  }
-                                />
-                              </Box>
-                              <Stack direction="row" spacing={0.5} sx={{ ml: 1 }}>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleDownloadFile(file)}
-                                  sx={{ 
-                                    color: '#4CAF50',
-                                    '&:hover': { bgcolor: alpha('#4CAF50', 0.1) }
-                                  }}
-                                  title="ดาวน์โหลด"
-                                >
-                                  <GetApp fontSize="small" />
-                                </IconButton>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleRemoveFile(file.id)}
-                                  sx={{ 
-                                    color: '#F35C76',
-                                    '&:hover': { bgcolor: alpha('#F35C76', 0.1) }
-                                  }}
-                                  title="ลบไฟล์"
-                                >
-                                  <Delete fontSize="small" />
-                                </IconButton>
-                              </Stack>
-                            </ListItem>
-                          );
-                        })}
-                      </List>
-                    </Box>
-                  )}
-                </Box>
-              </Stack>
-
-              {/* Mini Map */}
-              {location && (
+                {/* เอกสารประกอบการสมัคร */}
                 <Box sx={{ mt: 3 }}>
                   <Typography 
                     variant="subtitle2" 
@@ -1103,65 +936,92 @@ export default function RegisterRestaurantClient() {
                       mb: 2,
                     }}
                   >
-                    ตำแหน่งร้าน
+                    เอกสารประกอบการสมัคร {uploadedFiles.length > 0 && `(${uploadedFiles.length} ไฟล์)`}
                   </Typography>
-                  <MiniMap
-                    latitude={location.lat}
-                    longitude={location.lng}
-                    onLocationUpdate={handleLocationUpdateFromMap}
-                    showCoordinates={true}
-                    showRefresh={true}
-                    height={200}
+                  
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontFamily: 'Prompt, sans-serif',
+                      color: '#666',
+                      marginBottom: 2,
+                    }}
+                  >
+                    <p>1. สำเนาบัตรประชาชน </p>
+                    <p>2. สำเนาสมุดบัญชีธนาคาร (ชื่อเจ้าของต้องตรงกับชื่อผู้สมัคร)</p>
+                  </Typography>
+                  
+                  <FileDropzone
+                    files={uploadedFiles}
+                    onFilesChange={handleFileChange}
+                    onRemoveFile={handleRemoveFile}
+                    onDownloadFile={handleDownloadFile}
+                    loading={uploadingFiles}
+                    disabled={loading}
+                    maxFiles={10}
                   />
                 </Box>
-              )}
 
-              {/* Submit Button */}
-              <Box sx={{ mt: 4 }}>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  fullWidth
-                  disabled={loading}
-                  sx={{
-                    bgcolor: '#F8A66E',
-                    color: '#FFFFFF',
-                    fontFamily: 'Prompt, sans-serif',
-                    fontWeight: 500,
-                    borderRadius: 2,
-                    py: 1.5,
-                    textTransform: 'none',
-                    '&:hover': {
-                      bgcolor: '#E8956E',
-                    },
-                    '&:disabled': {
-                      bgcolor: '#ccc',
-                    },
-                  }}
-                >
-                  {loading ? (
-                    <CircularProgress size={24} sx={{ color: '#FFFFFF' }} />
-                  ) : (
-                    isEdit ? 'อัพเดทข้อมูลร้าน' : 'สมัครเปิดร้านอาหาร'
-                  )}
-                </Button>
-              </Box>
+                {/* Mini Map */}
+                {location && (
+                  <Box sx={{ mt: 3 }}>
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontFamily: 'Prompt, sans-serif',
+                        fontWeight: 600,
+                        color: '#1A1A1A',
+                        mb: 2,
+                      }}
+                    >
+                      ตำแหน่งร้าน
+                    </Typography>
+                    <MiniMap
+                      latitude={location.lat}
+                      longitude={location.lng}
+                      onLocationUpdate={handleLocationUpdateFromMap}
+                      showCoordinates={true}
+                      showRefresh={true}
+                      height={200}
+                    />
+                  </Box>
+                )}
+
+                {/* Submit Button */}
+                <Box sx={{ mt: 4 }}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    fullWidth
+                    disabled={loading}
+                    sx={{
+                      bgcolor: '#F8A66E',
+                      color: '#FFFFFF',
+                      fontFamily: 'Prompt, sans-serif',
+                      fontWeight: 500,
+                      borderRadius: 2,
+                      py: 1.5,
+                      textTransform: 'none',
+                      '&:hover': {
+                        bgcolor: '#E8956E',
+                      },
+                      '&:disabled': {
+                        bgcolor: '#ccc',
+                      },
+                    }}
+                  >
+                    {loading ? (
+                      <CircularProgress size={24} sx={{ color: '#FFFFFF' }} />
+                    ) : (
+                      isEdit ? 'อัพเดทข้อมูลร้าน' : 'สมัครเปิดร้านอาหาร'
+                    )}
+                  </Button>
+                </Box>
+              </Stack>
             </form>
           </CardContent>
         </Card>
-      </Container>
-
-      {/* Hidden file input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept="image/jpeg,image/png,image/jpg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        multiple
-        style={{ display: 'none' }}
-      />
-
-
-    </Box>
+      </Box>
+    </AppLayout>
   );
 } 

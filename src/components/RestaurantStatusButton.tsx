@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button, CircularProgress } from '@mui/material';
 import { Restaurant, Add, Visibility, Edit } from '@mui/icons-material';
+import { useNavigation } from '@/contexts/NavigationContext';
 
 interface RestaurantStatusButtonProps {
   session: any;
@@ -12,6 +13,7 @@ interface RestaurantStatusButtonProps {
 export default function RestaurantStatusButton({ session, router }: RestaurantStatusButtonProps) {
   const [restaurantStatus, setRestaurantStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigation = useNavigation();
 
   useEffect(() => {
     const loadRestaurantStatus = async () => {
@@ -61,13 +63,13 @@ export default function RestaurantStatusButton({ session, router }: RestaurantSt
 
   const handleClick = () => {
     if (!restaurantStatus) {
-      router.push('/restaurant/register');
+      navigation.push('/restaurant/register', 'สมัครเปิดร้านอาหาร');
     } else if (restaurantStatus === 'PENDING') {
-      router.push('/restaurant/pending');
+      navigation.push('/restaurant/pending', 'สถานะการสมัคร');
     } else if (restaurantStatus === 'APPROVED') {
-      router.push('/restaurant');
+      navigation.push('/restaurant', 'จัดการร้านอาหาร');
     } else if (restaurantStatus === 'REJECTED') {
-      router.push('/restaurant/register');
+      navigation.push('/restaurant/register', 'สมัครใหม่อีกครั้ง');
     }
   };
 
@@ -76,7 +78,7 @@ export default function RestaurantStatusButton({ session, router }: RestaurantSt
       case 'PENDING':
         return {
           icon: <Visibility />,
-          text: 'ดูสถานะการสมัคร',
+          text: 'ดูสถานะการสมัครร้านอาหาร',
           color: '#FF9800',
         };
       case 'APPROVED':

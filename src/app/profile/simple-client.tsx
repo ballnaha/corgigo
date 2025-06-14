@@ -4,40 +4,31 @@ import { useState, useRef, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
-  Container,
   Typography,
-  Card,
-  CardContent,
   Avatar,
   Button,
   TextField,
   IconButton,
   CircularProgress,
-  Stack,
   Chip,
   Box,
   alpha,
 } from '@mui/material';
-import AppHeader from '@/components/AppHeader';
 import MiniMap from '@/components/MiniMap';
-import FooterNavbar from '@/components/FooterNavbar';
 import {
   PhotoCamera,
-  Edit,
-  Save,
-  Cancel,
   Person,
   Email,
   Phone,
   LocationOn,
   Logout,
   MyLocation,
-  VerifiedUser,
-  Restaurant,
-  Add,
+  ArrowBack,
 } from '@mui/icons-material';
 import RestaurantStatusButton from '@/components/RestaurantStatusButton';
 import { useSnackbar } from '@/contexts/SnackbarContext';
+import FooterNavbar from '@/components/FooterNavbar';
+
 
 // Utility function to resize image
 const resizeImage = (file: File, maxWidth: number = 400, maxHeight: number = 400, quality: number = 0.8): Promise<Blob> => {
@@ -83,6 +74,7 @@ export default function SimpleProfileClient() {
   const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -92,10 +84,42 @@ export default function SimpleProfileClient() {
     address: '',
   });
   const [currentLocation, setCurrentLocation] = useState<{lat: number; lng: number} | null>(null);
+  const [cartCount, setCartCount] = useState(0);
+
+  // โหลด cart count จาก localStorage
+  useEffect(() => {
+    const loadCartCount = () => {
+      try {
+        const savedCart = localStorage.getItem('cart');
+        if (savedCart) {
+          const cartItems = JSON.parse(savedCart);
+          const totalCount = cartItems.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
+          setCartCount(totalCount);
+        }
+      } catch (error) {
+        console.error('Error loading cart count:', error);
+      }
+    };
+
+    loadCartCount();
+    
+    // Listen for cart updates
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'cart') {
+        loadCartCount();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   // โหลดข้อมูล profile จาก API
   useEffect(() => {
     const loadProfileData = async () => {
+      // รอให้ session โหลดเสร็จก่อน
+      if (status === 'loading') return;
+      
       if (session?.user) {
         try {
           const response = await fetch('/api/profile');
@@ -121,10 +145,19 @@ export default function SimpleProfileClient() {
               setAvatarPreview(result.user.avatar || null);
             }
           } else {
+            // ถ้าไม่มีข้อมูลใน API ให้ใช้ข้อมูลจาก session
+            setProfileData({
+              firstName: session.user.name?.split(' ')[0] || '',
+              lastName: session.user.name?.split(' ')[1] || '',
+              email: session.user.email || '',
+              phone: '',
+              address: '',
+            });
             setAvatarPreview(session.user.avatar || null);
           }
         } catch (error) {
           console.error('Error loading profile:', error);
+          // ใช้ข้อมูลจาก session เป็น fallback
           setProfileData({
             firstName: session.user.name?.split(' ')[0] || '',
             lastName: session.user.name?.split(' ')[1] || '',
@@ -135,21 +168,36 @@ export default function SimpleProfileClient() {
           setAvatarPreview(session.user.avatar || null);
         }
       }
+      
+      // เสร็จสิ้นการโหลดข้อมูลเริ่มต้น
+      setIsInitialLoading(false);
     };
 
     loadProfileData();
-  }, [session]);
+  }, [session, status]);
 
-  if (status === 'loading') {
+  if (isInitialLoading) {
     return (
       <Box sx={{ 
         display: 'flex', 
+        flexDirection: 'column',
         justifyContent: 'center', 
         alignItems: 'center', 
         minHeight: '100vh',
-        bgcolor: '#FAFAFA',
+        bgcolor: '#F5F5F5',
+        gap: 2,
       }}>
         <CircularProgress sx={{ color: '#F8A66E' }} size={40} />
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            fontFamily: 'Prompt, sans-serif',
+            color: '#666',
+            fontSize: '0.9rem',
+          }}
+        >
+          กำลังโหลดข้อมูลโปรไฟล์...
+        </Typography>
       </Box>
     );
   }
@@ -181,6 +229,8 @@ export default function SimpleProfileClient() {
                 lat: result.user.latitude,
                 lng: result.user.longitude
               });
+            } else {
+              setCurrentLocation(null);
             }
             
             setAvatarPreview(result.user.avatar || null);
@@ -188,6 +238,7 @@ export default function SimpleProfileClient() {
         }
       } catch (error) {
         console.error('Error loading profile:', error);
+        showSnackbar('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'error');
       }
     }
     setIsEditing(!isEditing);
@@ -203,33 +254,29 @@ export default function SimpleProfileClient() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // ตรวจสอบขนาดไฟล์ (จำกัดที่ 5MB)
+    if (file.size > 15 * 1024 * 1024) {
+      showSnackbar('ไฟล์รูปภาพต้องมีขนาดไม่เกิน 15MB', 'error');
+      return;
+    }
+
+    // ตรวจสอบประเภทไฟล์
     if (!file.type.startsWith('image/')) {
       showSnackbar('กรุณาเลือกไฟล์รูปภาพเท่านั้น', 'error');
       return;
     }
 
-    if (file.size > 15 * 1024 * 1024) {
-      showSnackbar('ขนาดไฟล์ต้องไม่เกิน 15MB', 'error');
-      return;
-    }
-
+    try {
     setIsUploading(true);
 
-    try {
-      // Resize image before upload
-      const resizedImageBlob = await resizeImage(file, 400, 400, 0.8);
+      // Resize image
+      const resizedBlob = await resizeImage(file);
       
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setAvatarPreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(resizedImageBlob);
+      // Create FormData
+      const formData = new FormData();
+      formData.append('avatar', resizedBlob, 'avatar.jpg');
 
       // Upload to server
-      const formData = new FormData();
-      formData.append('avatar', resizedImageBlob, file.name);
-
       const response = await fetch('/api/upload/avatar', {
         method: 'POST',
         body: formData,
@@ -237,154 +284,155 @@ export default function SimpleProfileClient() {
 
       const result = await response.json();
 
-      if (response.ok && result.success) {
+      if (result.success) {
         setAvatarPreview(result.avatarUrl);
         
+        // Update session
         await updateSession({
           ...session,
           user: {
             ...session.user,
             avatar: result.avatarUrl,
-          }
+          },
         });
 
-        showSnackbar('อัปโหลดรูปโปรไฟล์สำเร็จ', 'success');
+        showSnackbar('อัปโหลดรูปโปรไฟล์สำเร็จ!', 'success');
       } else {
-        throw new Error(result.error || 'อัปโหลดไม่สำเร็จ');
+        throw new Error(result.error || 'Upload failed');
       }
-    } catch (error: any) {
-      console.error('Upload error:', error);
-      showSnackbar(error.message || 'เกิดข้อผิดพลาดในการอัปโหลด', 'error');
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      showSnackbar('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ', 'error');
     } finally {
       setIsUploading(false);
+      // Clear the input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
-      showSnackbar('เบราว์เซอร์ไม่รองรับ GPS', 'error');
+      showSnackbar('เบราว์เซอร์ของคุณไม่รองรับการระบุตำแหน่ง', 'error');
       return;
     }
 
     setIsGettingLocation(true);
 
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
+      (position) => {
           const { latitude, longitude } = position.coords;
+        setCurrentLocation({ lat: latitude, lng: longitude });
           
-          // Use reverse geocoding to get address
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&accept-language=th`
-          );
-          
-          if (!response.ok) {
-            throw new Error('ไม่สามารถดึงข้อมูลที่อยู่ได้');
-          }
-          
-          const data = await response.json();
-          
-          // Format Thai address
-          let address = '';
-          if (data.address) {
-            const parts = [];
-            if (data.address.house_number) parts.push(data.address.house_number);
-            if (data.address.road) parts.push(data.address.road);
-            if (data.address.suburb) parts.push(data.address.suburb);
-            if (data.address.district) parts.push(data.address.district);
-            if (data.address.city || data.address.town) parts.push(data.address.city || data.address.town);
-            if (data.address.state) parts.push(data.address.state);
-            if (data.address.postcode) parts.push(data.address.postcode);
-            
-            address = parts.join(' ');
-          }
-          
-          if (!address && data.display_name) {
-            address = data.display_name;
-          }
-          
-          setProfileData(prev => ({ ...prev, address: address || `${position.coords.latitude}, ${position.coords.longitude}` }));
-          setCurrentLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-          showSnackbar('ดึงตำแหน่งปัจจุบันสำเร็จ', 'success');
-          
-        } catch (error: any) {
-          console.error('Geocoding error:', error);
-          // Fallback to coordinates
-          setProfileData(prev => ({ ...prev, address: `${position.coords.latitude}, ${position.coords.longitude}` }));
-          setCurrentLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-          showSnackbar('ใช้พิกัดแทนที่อยู่', 'info');
-        } finally {
+        // Reverse geocoding to get address
+        fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=th`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.locality || data.city) {
+              const address = [
+                data.locality,
+                data.city,
+                data.principalSubdivision,
+                data.countryName
+              ].filter(Boolean).join(', ');
+              
+              setProfileData(prev => ({ ...prev, address }));
+            }
+          })
+          .catch(error => {
+            console.error('Error getting address:', error);
+          })
+          .finally(() => {
           setIsGettingLocation(false);
-        }
+          });
       },
       (error) => {
-        console.error('Geolocation error:', error);
-        let message = 'ไม่สามารถดึงตำแหน่งได้';
+        console.error('Error getting location:', error);
+        let errorMessage = 'ไม่สามารถระบุตำแหน่งได้';
         
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            message = 'กรุณาอนุญาตการเข้าถึงตำแหน่ง';
+            errorMessage = 'กรุณาอนุญาตให้เข้าถึงตำแหน่งในเบราว์เซอร์';
             break;
           case error.POSITION_UNAVAILABLE:
-            message = 'ไม่สามารถระบุตำแหน่งได้';
+            errorMessage = 'ไม่สามารถระบุตำแหน่งได้ในขณะนี้';
             break;
           case error.TIMEOUT:
-            message = 'หมดเวลาในการระบุตำแหน่ง';
+            errorMessage = 'หมดเวลาในการระบุตำแหน่ง';
             break;
         }
         
-        showSnackbar(message, 'error');
+        showSnackbar(errorMessage, 'error');
         setIsGettingLocation(false);
       },
       {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 300000
+        maximumAge: 300000 // 5 minutes
       }
     );
   };
 
   const handleSaveProfile = async () => {
     try {
-      const saveData = {
-        ...profileData,
-        latitude: currentLocation?.lat || null,
-        longitude: currentLocation?.lng || null,
-      };
-
       const response = await fetch('/api/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(saveData),
+        body: JSON.stringify({
+          ...profileData,
+          latitude: currentLocation?.lat,
+          longitude: currentLocation?.lng,
+        }),
       });
 
       const result = await response.json();
 
-      if (response.ok && result.success) {
+      if (result.success) {
+        showSnackbar('บันทึกข้อมูลสำเร็จ!', 'success');
+        setIsEditing(false);
+        
+        // เด้งขึ้นด้านบนสุดแบบเดียวกับ restaurant/pending
+        const scrollToTop = () => {
+          // ใช้หลายวิธีเพื่อให้แน่ใจว่า scroll ได้
+          if (typeof window !== 'undefined') {
+            // วิธีที่ 1: window.scrollTo
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            
+            // วิธีที่ 2: document element scroll
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+            
+            // วิธีที่ 3: ใช้ requestAnimationFrame เพื่อให้แน่ใจ
+            requestAnimationFrame(() => {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+          }
+        };
+        
+        // เรียกใช้ทันทีและหลังจาก UI อัปเดต
+        scrollToTop();
+        setTimeout(scrollToTop, 50);
+        setTimeout(scrollToTop, 200);
+        
+        // Update session if name changed
+        if (profileData.firstName || profileData.lastName) {
         await updateSession({
           ...session,
           user: {
             ...session.user,
             name: `${profileData.firstName} ${profileData.lastName}`.trim(),
-            email: profileData.email,
-            phone: profileData.phone,
-            address: profileData.address,
-          }
-        });
-
-        setIsEditing(false);
-        
-        // เด้งไปด้านบนสุดและแสดง snackbar
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        showSnackbar('บันทึกข้อมูลสำเร็จ', 'success');
+            },
+          });
+        }
       } else {
-        throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+        throw new Error(result.error || 'Save failed');
       }
-    } catch (error: any) {
-      console.error('Save error:', error);
-      showSnackbar(error.message || 'เกิดข้อผิดพลาดในการบันทึก', 'error');
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      showSnackbar('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
     }
   };
 
@@ -396,428 +444,711 @@ export default function SimpleProfileClient() {
     setCurrentLocation({ lat, lng });
   };
 
+  const handleBack = () => {
+    router.back();
+  };
+
   return (
-    <Box sx={{ 
-      backgroundColor: '#FFFFFF',
-      minHeight: '100vh',
-      paddingBottom: '80px',
-      fontFamily: 'Prompt, sans-serif',
-    }}>
-      <AppHeader />
-      
-      <Container maxWidth="xl" sx={{ py: 2, px: 2 }}>
-        <Box sx={{ mb: 10 }}>
-          {/* Profile Card */}
-          <Card 
-            elevation={0}
-            sx={{ 
-              borderRadius: 3,
-              border: '1px solid #E8E8E8',
-              bgcolor: '#FFFFFF',
-              mb: 2,
+    <Box className="app-container">
+      {/* Custom Header */}
+      <Box sx={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 1000,
+        bgcolor: '#FFFFFF',
+        borderBottom: '1px solid #E8E8E8',
+        px: 2,
+        py: 1.5,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        height: 64,
+        minHeight: 64,
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <IconButton
+            onClick={handleBack}
+            sx={{
+              color: '#1A1A1A',
+              '&:hover': {
+                bgcolor: '#F5F5F5',
+              },
             }}
           >
-            <CardContent sx={{ p: 3 }}>
-              {/* Avatar Section */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
-                <Box sx={{ position: 'relative', mb: 2 }}>
-                  <Avatar
-                    src={avatarPreview || session.user?.avatar || undefined}
-                    sx={{ 
-                      width: 100, 
-                      height: 100,
-                      cursor: 'pointer', // เปลี่ยนให้คลิกได้เสมอ
-                      border: '3px solid #F8A66E',
-                      '&:hover': {
-                        opacity: 0.8,
-                        transform: 'scale(1.05)',
-                      },
-                      transition: 'all 0.2s ease',
-                    }}
-                    onClick={handleAvatarClick}
-                  >
-                    {!avatarPreview && !session.user?.avatar && (
-                      <Person sx={{ fontSize: 50, color: '#999' }} />
-                    )}
-                  </Avatar>
-                  
-                  {/* แสดงปุ่มกล้องเสมอ แต่ disable เมื่อไม่ได้แก้ไข */}
-                  <IconButton
-                    sx={{
-                      position: 'absolute',
-                      bottom: -5,
-                      right: -5,
-                      bgcolor: isEditing ? '#F8A66E' : '#999',
-                      color: '#FFFFFF',
-                      width: 32,
-                      height: 32,
-                      '&:hover': {
-                        bgcolor: isEditing ? '#E8956E' : '#777',
-                      },
-                      opacity: isEditing ? 1 : 0.6,
-                    }}
-                    onClick={handleAvatarClick}
-                    disabled={isUploading || !isEditing}
-                    title={isEditing ? 'เปลี่ยนรูปโปรไฟล์' : 'กดแก้ไขข้อมูลเพื่อเปลี่ยนรูป'}
-                  >
-                    {isUploading ? (
-                      <CircularProgress size={16} sx={{ color: '#FFFFFF' }} />
-                    ) : (
-                      <PhotoCamera sx={{ fontSize: 16 }} />
-                    )}
-                  </IconButton>
-                </Box>
+            <ArrowBack />
+          </IconButton>
+          <Typography
+            variant="h6"
+            sx={{
+              fontFamily: 'Prompt, sans-serif',
+              fontWeight: 600,
+              color: '#1A1A1A',
+              fontSize: '1.1rem',
+            }}
+          >
+            โปรไฟล์
+          </Typography>
+        </Box>
+        
+        <Button
+          onClick={isEditing ? handleSaveProfile : handleEditToggle}
+          variant="text"
+          sx={{
+            color: '#F8A66E',
+            fontFamily: 'Prompt, sans-serif',
+            fontWeight: 600,
+            fontSize: '0.9rem',
+            textTransform: 'uppercase',
+            minWidth: 'auto',
+            px: 1,
+            '&:hover': {
+              bgcolor: 'transparent',
+              color: '#E8956E',
+            },
+          }}
+        >
+          {isEditing ? 'บันทึก' : 'แก้ไข'}
+        </Button>
+      </Box>
 
-                {/* User Info */}
+      {/* Profile Content */}
+      <Box className="app-content" sx={{ bgcolor: '#F5F5F5' , marginBottom: '64px' }}>
+        <Box sx={{ px: 2, py: 3 }}>
+        {/* Profile Header */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 3, 
+          mb: 4,
+          bgcolor: '#FFFFFF',
+          borderRadius: 2,
+          p: 3,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        }}>
+          <Box sx={{ position: 'relative' }}>
+            <Avatar
+              src={avatarPreview || session.user?.avatar || undefined}
+              sx={{ 
+                width: 80, 
+                height: 80,
+                cursor: isEditing ? 'pointer' : 'default',
+                '&:hover': isEditing ? {
+                  opacity: 0.8,
+                } : {},
+                transition: 'all 0.2s ease',
+              }}
+              onClick={isEditing ? handleAvatarClick : undefined}
+            >
+              {!avatarPreview && !session.user?.avatar && (
+                <Person sx={{ fontSize: 40, color: '#999' }} />
+              )}
+            </Avatar>
+            
+            {isEditing ? (
+              <IconButton
+                sx={{
+                  position: 'absolute',
+                  bottom: -5,
+                  right: -5,
+                  bgcolor: '#F8A66E',
+                  color: '#FFFFFF',
+                  width: 28,
+                  height: 28,
+                  '&:hover': {
+                    bgcolor: '#E8956E',
+                  },
+                }}
+                onClick={handleAvatarClick}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <CircularProgress size={14} sx={{ color: '#1a1a1a' }} />
+                ) : (
+                  <PhotoCamera sx={{ fontSize: 14 }} />
+                )}
+              </IconButton>
+            ) : (
+              <IconButton
+                sx={{
+                  position: 'absolute',
+                  bottom: -5,
+                  right: -5,
+                  bgcolor: '#F5F5F5',
+                  color: '#999',
+                  width: 28,
+                  height: 28,
+                  '&:hover': {
+                    bgcolor: '#F5F5F5',
+                    color: '#999',
+                  },
+                }}
+                
+              >
+                <PhotoCamera sx={{ fontSize: 14 }} />
+              </IconButton>
+            )}
+          </Box>
+
+          <Box sx={{ flex: 1 }}>
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontFamily: 'Prompt, sans-serif',
+                fontWeight: 600,
+                color: '#1A1A1A',
+                fontSize: '1.3rem',
+                mb: 0.5,
+              }}
+            >
+              {profileData.firstName || profileData.lastName 
+                ? `${profileData.firstName} ${profileData.lastName}`.trim()
+                : session.user?.name || 'ผู้ใช้งาน'
+              }
+            </Typography>
+            
+          </Box>
+        </Box>
+
+        {/* Profile Info List */}
+        <Box sx={{ bgcolor: '#FFFFFF', borderRadius: 2, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          {/* Full Name */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            p: 3, 
+            borderBottom: '1px solid #F5F5F5',
+          }}>
+            <Box sx={{ 
+              width: 40, 
+              height: 40, 
+              borderRadius: '50%', 
+              bgcolor: '#FFF3E0', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              mr: 3,
+            }}>
+              <Person sx={{ color: '#F8A66E', fontSize: 20 }} />
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  fontFamily: 'Prompt, sans-serif',
+                  color: '#999',
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  display: 'block',
+                  mb: 0.5,
+                }}
+              >
+                FULL NAME
+              </Typography>
+              {isEditing ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <TextField
+                    size="small"
+                    placeholder="ชื่อ"
+                    value={profileData.firstName}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, firstName: e.target.value }))}
+                    variant="outlined"
+                    sx={{
+                      width: '100%',
+                      '& .MuiOutlinedInput-root': {
+                        fontFamily: 'Prompt, sans-serif',
+                        fontSize: '0.9rem',
+                        borderRadius: 2,
+                        backgroundColor: '#FAFAFA',
+                        '&:hover': {
+                          backgroundColor: '#F5F5F5',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: '#FFFFFF',
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: '#F8A66E',
+                            borderWidth: 2,
+                          },
+                        },
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#E0E0E0',
+                        },
+                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#BDBDBD',
+                        },
+                      },
+                      '& .MuiInputBase-input': {
+                        fontFamily: 'Prompt, sans-serif',
+                        fontSize: '0.9rem',
+                        fontWeight: 500,
+                        color: '#1A1A1A',
+                        '&::placeholder': {
+                          color: '#999',
+                          opacity: 1,
+                        },
+                      },
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    placeholder="นามสกุล"
+                    value={profileData.lastName}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, lastName: e.target.value }))}
+                    variant="outlined"
+                    sx={{
+                      width: '100%',
+                      '& .MuiOutlinedInput-root': {
+                        fontFamily: 'Prompt, sans-serif',
+                        fontSize: '0.9rem',
+                        borderRadius: 2,
+                        backgroundColor: '#FAFAFA',
+                        '&:hover': {
+                          backgroundColor: '#F5F5F5',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: '#FFFFFF',
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: '#F8A66E',
+                            borderWidth: 2,
+                          },
+                        },
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#E0E0E0',
+                        },
+                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#BDBDBD',
+                        },
+                      },
+                      '& .MuiInputBase-input': {
+                        fontFamily: 'Prompt, sans-serif',
+                        fontSize: '0.9rem',
+                        fontWeight: 500,
+                        color: '#1A1A1A',
+                        '&::placeholder': {
+                          color: '#999',
+                          opacity: 1,
+                        },
+                      },
+                    }}
+                  />
+                </Box>
+              ) : (
                 <Typography 
-                  variant="h6" 
+                  variant="body1" 
                   sx={{ 
                     fontFamily: 'Prompt, sans-serif',
-                    fontWeight: 600,
                     color: '#1A1A1A',
-                    textAlign: 'center',
+                    fontWeight: 500,
                   }}
                 >
                   {profileData.firstName || profileData.lastName 
                     ? `${profileData.firstName} ${profileData.lastName}`.trim()
-                    : session.user?.name || 'ผู้ใช้งาน'
+                    : session.user?.name || 'ไม่ระบุ'
                   }
                 </Typography>
-                
-                {/* Avatar Upload Hint */}
-                {isEditing && (
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      fontFamily: 'Prompt, sans-serif',
-                      color: '#666',
-                      textAlign: 'center',
-                      mt: 0.5,
-                    }}
-                  >
-                    คลิกที่รูปภาพเพื่อเปลี่ยนรูปโปรไฟล์
-                  </Typography>
-                )}
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                  <Email sx={{ color: '#999', fontSize: 16 }} />
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
-                      fontFamily: 'Prompt, sans-serif',
-                      color: '#666',
-                    }}
-                  >
-                    {profileData.email || session.user?.email}
-                  </Typography>
-                </Box>
+              )}
+            </Box>
+          </Box>
 
-                {/* Restaurant Status */}
-                <Box sx={{ mt: 2 }}>
-                  <RestaurantStatusButton session={session} router={router} />
-                </Box>
-              </Box>
-
-              {/* Form Fields */}
-              <Stack spacing={3}>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <TextField
-                    fullWidth
-                    label="ชื่อ"
-                    value={profileData.firstName}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, firstName: e.target.value }))}
-                    disabled={!isEditing}
-                    variant="outlined"
-                    InputProps={{
-                      startAdornment: <Person sx={{ mr: 1.5, color: '#999', fontSize: 18 }} />,
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        fontFamily: 'Prompt, sans-serif',
-                        bgcolor: isEditing ? '#FFFFFF' : '#F8F8F8',
-                      },
-                      '& .MuiInputLabel-root': { 
-                        fontFamily: 'Prompt, sans-serif',
-                      },
-                    }}
-                  />
-                  <TextField
-                    fullWidth
-                    label="นามสกุล"
-                    value={profileData.lastName}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, lastName: e.target.value }))}
-                    disabled={!isEditing}
-                    variant="outlined"
-                    InputProps={{
-                      startAdornment: <Person sx={{ mr: 1.5, color: '#999', fontSize: 18 }} />,
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        fontFamily: 'Prompt, sans-serif',
-                        bgcolor: isEditing ? '#FFFFFF' : '#F8F8F8',
-                      },
-                      '& .MuiInputLabel-root': { 
-                        fontFamily: 'Prompt, sans-serif',
-                      },
-                    }}
-                  />
-                </Box>
-
+          {/* Email */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            p: 3, 
+            borderBottom: '1px solid #F5F5F5',
+          }}>
+            <Box sx={{ 
+              width: 40, 
+              height: 40, 
+              borderRadius: '50%', 
+              bgcolor: '#E3F2FD', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              mr: 3,
+            }}>
+              <Email sx={{ color: '#2196F3', fontSize: 20 }} />
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  fontFamily: 'Prompt, sans-serif',
+                  color: '#999',
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  display: 'block',
+                  mb: 0.5,
+                }}
+              >
+                EMAIL
+              </Typography>
+              {isEditing ? (
                 <TextField
-                  fullWidth
-                  label="อีเมล"
+                  size="small"
+                  type="email"
+                  placeholder="อีเมล"
                   value={profileData.email}
                   onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                  disabled={!isEditing}
                   variant="outlined"
-                  InputProps={{
-                    startAdornment: <Email sx={{ mr: 1.5, color: '#999', fontSize: 18 }} />,
-                  }}
                   sx={{
+                    width: '100%',
                     '& .MuiOutlinedInput-root': {
+                      fontFamily: 'Prompt, sans-serif',
+                      fontSize: '0.9rem',
                       borderRadius: 2,
-                      fontFamily: 'Prompt, sans-serif',
-                      bgcolor: isEditing ? '#FFFFFF' : '#F8F8F8',
+                      backgroundColor: '#FAFAFA',
+                      '&:hover': {
+                        backgroundColor: '#F5F5F5',
+                      },
+                      '&.Mui-focused': {
+                        backgroundColor: '#FFFFFF',
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#F8A66E',
+                          borderWidth: 2,
+                        },
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#E0E0E0',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#BDBDBD',
+                      },
                     },
-                    '& .MuiInputLabel-root': { 
+                    '& .MuiInputBase-input': {
                       fontFamily: 'Prompt, sans-serif',
+                      fontSize: '0.9rem',
+                      fontWeight: 500,
+                      color: '#1A1A1A',
+                      '&::placeholder': {
+                        color: '#999',
+                        opacity: 1,
+                      },
                     },
                   }}
                 />
+              ) : (
+                <Typography 
+                  variant="body1" 
+                  sx={{ 
+                    fontFamily: 'Prompt, sans-serif',
+                    color: '#1A1A1A',
+                    fontWeight: 500,
+                  }}
+                >
+                  {profileData.email || session.user?.email || 'ไม่ระบุ'}
+                </Typography>
+              )}
+            </Box>
+          </Box>
 
+          {/* Phone Number */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            p: 3,
+            borderBottom: '1px solid #F5F5F5',
+          }}>
+            <Box sx={{ 
+              width: 40, 
+              height: 40, 
+              borderRadius: '50%', 
+              bgcolor: '#E8F5E8', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              mr: 3,
+            }}>
+              <Phone sx={{ color: '#4CAF50', fontSize: 20 }} />
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  fontFamily: 'Prompt, sans-serif',
+                  color: '#999',
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  display: 'block',
+                  mb: 0.5,
+                }}
+              >
+                PHONE NUMBER
+              </Typography>
+              {isEditing ? (
                 <TextField
-                  fullWidth
-                  label="เบอร์โทรศัพท์"
+                  size="small"
+                  type="tel"
+                  placeholder="เบอร์โทรศัพท์"
                   value={profileData.phone}
                   onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                  disabled={!isEditing}
                   variant="outlined"
-                  InputProps={{
-                    startAdornment: <Phone sx={{ mr: 1.5, color: '#999', fontSize: 18 }} />,
-                  }}
                   sx={{
+                    width: '100%',
                     '& .MuiOutlinedInput-root': {
+                      fontFamily: 'Prompt, sans-serif',
+                      fontSize: '0.9rem',
                       borderRadius: 2,
-                      fontFamily: 'Prompt, sans-serif',
-                      bgcolor: isEditing ? '#FFFFFF' : '#F8F8F8',
+                      backgroundColor: '#FAFAFA',
+                      '&:hover': {
+                        backgroundColor: '#F5F5F5',
+                      },
+                      '&.Mui-focused': {
+                        backgroundColor: '#FFFFFF',
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#F8A66E',
+                          borderWidth: 2,
+                        },
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#E0E0E0',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#BDBDBD',
+                      },
                     },
-                    '& .MuiInputLabel-root': { 
+                    '& .MuiInputBase-input': {
                       fontFamily: 'Prompt, sans-serif',
+                      fontSize: '0.9rem',
+                      fontWeight: 500,
+                      color: '#1A1A1A',
+                      '&::placeholder': {
+                        color: '#999',
+                        opacity: 1,
+                      },
                     },
                   }}
                 />
-
-                <TextField
-                  fullWidth
-                  label="ที่อยู่"
-                  value={profileData.address}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
-                  disabled={!isEditing}
-                  variant="outlined"
-                  multiline
-                  rows={2}
-                  InputProps={{
-                    startAdornment: <LocationOn sx={{ mr: 1.5, color: '#999', fontSize: 18, alignSelf: 'flex-start', mt: 0.5 }} />,
-                    endAdornment: isEditing ? (
-                      <IconButton
-                        onClick={handleGetCurrentLocation}
-                        disabled={isGettingLocation}
-                        size="small"
-                        sx={{
-                          color: '#F8A66E',
-                          alignSelf: 'flex-start',
-                          mt: 0.5,
-                        }}
-                      >
-                        {isGettingLocation ? (
-                          <CircularProgress size={16} sx={{ color: '#F8A66E' }} />
-                        ) : (
-                          <MyLocation sx={{ fontSize: 16 }} />
-                        )}
-                      </IconButton>
-                    ) : null,
+              ) : (
+                <Typography 
+                  variant="body1" 
+                  sx={{ 
+                    fontFamily: 'Prompt, sans-serif',
+                    color: '#1A1A1A',
+                    fontWeight: 500,
                   }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      fontFamily: 'Prompt, sans-serif',
-                      bgcolor: isEditing ? '#FFFFFF' : '#F8F8F8',
-                    },
-                    '& .MuiInputLabel-root': { 
-                      fontFamily: 'Prompt, sans-serif',
-                    },
-                  }}
-                />
-              </Stack>
+                >
+                  {profileData.phone || 'ไม่ระบุ'}
+                </Typography>
+              )}
+            </Box>
+          </Box>
 
-              {/* Action Buttons */}
-              <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-                {isEditing ? (
-                  <>
-                    <Button
-                      variant="contained"
-                      startIcon={<Save />}
-                      onClick={handleSaveProfile}
-                      sx={{
-                        flex: 1,
-                        bgcolor: '#F8A66E',
-                        color: '#FFFFFF',
-                        fontFamily: 'Prompt, sans-serif',
-                        fontWeight: 500,
-                        borderRadius: 2,
-                        py: 1,
-                        textTransform: 'none',
-                        '&:hover': {
-                          bgcolor: '#E8956E',
-                        },
-                      }}
-                    >
-                      บันทึกข้อมูล
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      startIcon={<Cancel />}
-                      onClick={handleEditToggle}
-                      sx={{
-                        flex: 1,
-                        borderColor: '#E8E8E8',
-                        color: '#666',
-                        fontFamily: 'Prompt, sans-serif',
-                        fontWeight: 500,
-                        borderRadius: 2,
-                        py: 1,
-                        textTransform: 'none',
-                        '&:hover': {
-                          borderColor: '#D0D0D0',
-                          bgcolor: '#FAFAFA',
-                        },
-                      }}
-                    >
-                      ยกเลิก
-                    </Button>
-                  </>
-                ) : (
-                  <Button
+          {/* Address - แสดงทั้งในโหมด view และ edit */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'flex-start', 
+            p: 3,
+          }}>
+            <Box sx={{ 
+              width: 40, 
+              height: 40, 
+              borderRadius: '50%', 
+              bgcolor: '#FFF3E0', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              mr: 3,
+              mt: 0.5,
+            }}>
+              <LocationOn sx={{ color: '#FF9800', fontSize: 20 }} />
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  fontFamily: 'Prompt, sans-serif',
+                  color: '#999',
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  display: 'block',
+                  mb: 0.5,
+                }}
+              >
+                ADDRESS
+              </Typography>
+              {isEditing ? (
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                  <TextField
+                    size="small"
+                    multiline
+                    rows={5}
+                    placeholder="ที่อยู่"
+                    value={profileData.address}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
                     variant="outlined"
-                    startIcon={<Edit />}
-                    onClick={handleEditToggle}
                     sx={{
                       flex: 1,
-                      borderColor: '#F8A66E',
-                      color: '#F8A66E',
-                      fontFamily: 'Prompt, sans-serif',
-                      fontWeight: 500,
-                      borderRadius: 2,
-                      py: 1,
-                      textTransform: 'none',
-                      '&:hover': {
-                        borderColor: '#E8956E',
-                        bgcolor: alpha('#F8A66E', 0.04),
+                      '& .MuiOutlinedInput-root': {
+                        fontFamily: 'Prompt, sans-serif',
+                        fontSize: '0.9rem',
+                        borderRadius: 2,
+                        backgroundColor: '#FAFAFA',
+                        '&:hover': {
+                          backgroundColor: '#F5F5F5',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: '#FFFFFF',
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: '#F8A66E',
+                            borderWidth: 2,
+                          },
+                        },
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#E0E0E0',
+                        },
+                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#BDBDBD',
+                        },
+                      },
+                      '& .MuiInputBase-input': {
+                        fontFamily: 'Prompt, sans-serif',
+                        fontSize: '0.9rem',
+                        fontWeight: 500,
+                        color: '#1A1A1A',
+                        '&::placeholder': {
+                          color: '#999',
+                          opacity: 1,
+                        },
                       },
                     }}
-                  >
-                    แก้ไขข้อมูล
-                  </Button>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-
-          {/* GPS Coordinates Display */}
-          {currentLocation && (
-            <Card 
-              elevation={0}
-              sx={{ 
-                borderRadius: 3,
-                border: '1px solid #E8E8E8',
-                bgcolor: '#FFFFFF',
-                mt: 2,
-              }}
-            >
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <MyLocation sx={{ color: '#F8A66E', mr: 1.5, fontSize: 20 }} />
-                  <Typography 
-                    variant="subtitle1" 
-                    sx={{ 
-                      fontFamily: 'Prompt, sans-serif',
-                      fontWeight: 600, 
-                      color: '#1A1A1A', 
-                    }}
-                  >
-                    พิกัด GPS
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Chip
-                    label={`ละติจูด: ${currentLocation.lat.toFixed(6)}`}
-                    size="small"
-                    sx={{
-                      fontFamily: 'Prompt, sans-serif',
-                      bgcolor: alpha('#F8A66E', 0.1),
-                      color: '#F8A66E',
-                      border: `1px solid ${alpha('#F8A66E', 0.2)}`,
-                    }}
                   />
-                  <Chip
-                    label={`ลองจิจูด: ${currentLocation.lng.toFixed(6)}`}
-                    size="small"
+                  <IconButton
+                    onClick={handleGetCurrentLocation}
+                    disabled={isGettingLocation}
                     sx={{
-                      fontFamily: 'Prompt, sans-serif',
-                      bgcolor: alpha('#F8A66E', 0.1),
                       color: '#F8A66E',
-                      border: `1px solid ${alpha('#F8A66E', 0.2)}`,
+                      mt: 0.5,
+                      '&:hover': {
+                        bgcolor: alpha('#F8A66E', 0.1),
+                      },
                     }}
-                  />
+                    title="ใช้ตำแหน่งปัจจุบัน"
+                  >
+                    {isGettingLocation ? (
+                      <CircularProgress size={20} sx={{ color: '#F8A66E' }} />
+                    ) : (
+                      <MyLocation sx={{ fontSize: 20 }} />
+                    )}
+                  </IconButton>
                 </Box>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <Typography 
+                  variant="body1" 
+                  sx={{ 
+                    fontFamily: 'Prompt, sans-serif',
+                    color: '#1A1A1A',
+                    fontWeight: 500,
+                    lineHeight: 1.6,
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {profileData.address || 'ไม่ระบุ'}
+                </Typography>
+              )}
+            </Box>
+          </Box>
 
-          {/* Mini Map */}
-          {currentLocation && (
-            <Box sx={{ mt: 2 }}>
-              <MiniMap
-                latitude={currentLocation.lat}
-                longitude={currentLocation.lng}
-                onLocationUpdate={handleLocationUpdateFromMap}
-                showCoordinates={false}
-                showRefresh={isEditing}
-                height={200}
+          
+        </Box>
+
+        {/* Current Location Display - แสดงเฉพาะเมื่อมี location */}
+        {currentLocation && (
+          <Box sx={{ 
+            bgcolor: '#FFFFFF', 
+            borderRadius: 2, 
+            p: 3, 
+            mt: 2,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <MyLocation sx={{ color: '#F8A66E', mr: 1.5, fontSize: 20 }} />
+              <Typography 
+                variant="subtitle1" 
+                sx={{ 
+                  fontFamily: 'Prompt, sans-serif',
+                  fontWeight: 600, 
+                  color: '#1A1A1A', 
+                }}
+              >
+                พิกัด GPS
+              </Typography>
+            </Box>
+            
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Chip
+                label={`ละติจูด: ${currentLocation.lat.toFixed(6)}`}
+                size="small"
+                sx={{
+                  fontFamily: 'Prompt, sans-serif',
+                  bgcolor: alpha('#F8A66E', 0.1),
+                  color: '#F8A66E',
+                  border: `1px solid ${alpha('#F8A66E', 0.2)}`,
+                }}
+              />
+              <Chip
+                label={`ลองจิจูด: ${currentLocation.lng.toFixed(6)}`}
+                size="small"
+                sx={{
+                  fontFamily: 'Prompt, sans-serif',
+                  bgcolor: alpha('#F8A66E', 0.1),
+                  color: '#F8A66E',
+                  border: `1px solid ${alpha('#F8A66E', 0.2)}`,
+                }}
               />
             </Box>
-          )}
-
-          {/* Logout Button */}
-          <Box sx={{ mt: 3 }}>
-            <Button
-              variant="outlined"
-              startIcon={<Logout />}
-              onClick={handleLogout}
-              fullWidth
-              sx={{
-                borderColor: '#E8E8E8',
-                color: '#999',
-                fontFamily: 'Prompt, sans-serif',
-                fontWeight: 500,
-                borderRadius: 2,
-                py: 1.5,
-                textTransform: 'none',
-                '&:hover': {
-                  borderColor: '#FF6B6B',
-                  color: '#FF6B6B',
-                  bgcolor: alpha('#FF6B6B', 0.04),
-                },
-              }}
-            >
-              ออกจากระบบ
-            </Button>
           </Box>
+        )}
+
+        {/* Mini Map - แสดงเฉพาะเมื่อมี location */}
+        {currentLocation && (
+          <Box sx={{ mt: 2 }}>
+            <MiniMap
+              latitude={currentLocation.lat}
+              longitude={currentLocation.lng}
+              onLocationUpdate={handleLocationUpdateFromMap}
+              showCoordinates={false}
+              showRefresh={isEditing}
+              height={200}
+            />
+          </Box>
+        )}
+
+        {/* Restaurant Status */}
+        <Box sx={{ mt: 3 }}>
+          <RestaurantStatusButton session={session} router={router} />
         </Box>
-      </Container>
+
+        {/* Logout Button */}
+        <Box sx={{ mt: 3 }}>
+          <Button
+            variant="outlined"
+            startIcon={<Logout />}
+            onClick={handleLogout}
+            fullWidth
+            sx={{
+              borderColor: '#E8E8E8',
+              color: '#999',
+              fontFamily: 'Prompt, sans-serif',
+              fontWeight: 500,
+              borderRadius: 2,
+              py: 1.5,
+              textTransform: 'none',
+              '&:hover': {
+                borderColor: '#FF6B6B',
+                color: '#FF6B6B',
+                bgcolor: alpha('#FF6B6B', 0.04),
+              },
+            }}
+          >
+            ออกจากระบบ
+          </Button>
+        </Box>
+        </Box>
+      </Box>
 
       {/* Hidden file input */}
       <input
@@ -828,7 +1159,9 @@ export default function SimpleProfileClient() {
         style={{ display: 'none' }}
       />
 
-      <FooterNavbar />
+      {/* Footer Navigation */}
+      <FooterNavbar cartCount={cartCount} />
     </Box>
+
   );
 } 

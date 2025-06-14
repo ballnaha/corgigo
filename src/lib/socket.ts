@@ -17,6 +17,57 @@ export const config = {
   },
 };
 
+export interface SocketUser {
+  id: string;
+  name: string;
+  role: 'CUSTOMER' | 'RESTAURANT' | 'RIDER' | 'ADMIN';
+  email: string;
+  socketId: string;
+  restaurantId?: string;
+}
+
+export interface OrderNotification {
+  orderId: string;
+  customerId: string;
+  customerName: string;
+  restaurantId: string;
+  restaurantName: string;
+  items: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+  }>;
+  totalAmount: number;
+  deliveryAddress: string;
+  status: 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERING' | 'DELIVERED';
+  createdAt: string;
+}
+
+export interface RiderNotification {
+  orderId: string;
+  restaurantName: string;
+  restaurantAddress: string;
+  customerName: string;
+  deliveryAddress: string;
+  estimatedDistance: string;
+  deliveryFee: number;
+  status: 'READY_FOR_PICKUP' | 'ASSIGNED' | 'PICKED_UP' | 'DELIVERING';
+}
+
+// Store connected users
+export const connectedUsers = new Map<string, SocketUser>();
+
+// Store users by role for easy filtering
+export const usersByRole = {
+  CUSTOMER: new Map<string, SocketUser>(),
+  RESTAURANT: new Map<string, SocketUser>(),
+  RIDER: new Map<string, SocketUser>(),
+  ADMIN: new Map<string, SocketUser>(),
+};
+
+// Store restaurant owners by restaurant ID
+export const restaurantOwners = new Map<string, SocketUser[]>();
+
 // Socket.io server initialization
 export function initSocket(server: NetServer) {
   const io = new ServerIO(server, {

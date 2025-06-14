@@ -1,37 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
-  Container,
   Box,
   Typography,
   Card,
   CardContent,
   TextField,
   InputAdornment,
-  IconButton,
-  BottomNavigation,
-  BottomNavigationAction,
-  Badge,
   Snackbar,
   Alert,
   CircularProgress,
   Chip,
-  Avatar,
 } from '@mui/material';
 import {
   Search,
-  FilterList,
-  Person,
-  Favorite,
-  FavoriteBorder,
   Star,
-  Add,
-  ShoppingCart,
-  Home,
 } from '@mui/icons-material';
 import Sidebar from '../components/Sidebar';
-import CategorySwiper from '../components/CategorySwiper';
 import Onboarding from '../components/Onboarding';
 import AppHeader from '../components/AppHeader';
 import FooterNavbar from '../components/FooterNavbar';
@@ -40,391 +26,269 @@ export default function HomePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [bottomNavValue, setBottomNavValue] = useState(0);
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [cartCount, setCartCount] = useState(0);
+  const [cartCount, setCartCount] = useState(2);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [userAddress, setUserAddress] = useState<string>('');
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [startX, setStartX] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  
-  // States for API data
-  const [categories, setCategories] = useState<any[]>([]);
-  const [restaurants, setRestaurants] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
-  // Banner images - เพียงแค่รูปภาพ
-  const banners = [
+  // Banner slides data
+  const bannerSlides = [
     {
-      backgroundImage: '/images/banner10percent.webp', // รูปที่มีอยู่แล้ว
-      alt: 'โปรโมชั่นส่วนลด 10%'
+      id: 1,
+      image: 'images/banner10percent.webp',
     },
     {
-      backgroundImage: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', // รูปอาหารไทย
-      alt: 'เมนูอาหารไทย'
+      id: 2,
+      image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&h=400&fit=crop',
     },
     {
-      backgroundImage: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', // รูปพิซซ่า
-      alt: 'เมนูพิซซ่า'
-    }
+      id: 3,
+      image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=800&h=400&fit=crop',
+    },
   ];
+
+  // โหลดข้อมูล profile เพื่อดึง address
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      // รอให้ session โหลดเสร็จก่อน
+      if (status === 'loading') return;
+      
+      if (session?.user) {
+      try {
+          const response = await fetch('/api/profile');
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.user?.address) {
+              setUserAddress(result.user.address);
+        }
+          }
+      } catch (error) {
+          console.error('Error loading user profile:', error);
+        }
+      }
+      
+      // เสร็จสิ้นการโหลดข้อมูลเริ่มต้น
+      setIsInitialLoading(false);
+    };
+
+    loadUserProfile();
+  }, [session, status]);
 
   // Auto slide banner
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (!isDragging) { // Don't auto-slide while user is dragging
-        setCurrentSlide((prev) => (prev + 1) % banners.length);
-      }
-    }, 4000); // Change slide every 4 seconds (slower for minimal feel)
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % bannerSlides.length);
+    }, 10000);
 
-    return () => clearInterval(timer);
-  }, [isDragging]);
+    return () => clearInterval(interval);
+  }, [bannerSlides.length]);
 
-  // Cleanup mouse events
-  useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      if (isDragging) {
-        setIsDragging(false);
-      }
-    };
-
-    if (isDragging) {
-      document.addEventListener('mouseup', handleGlobalMouseUp);
-      document.addEventListener('mouseleave', handleGlobalMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-      document.removeEventListener('mouseleave', handleGlobalMouseUp);
-    };
-  }, [isDragging]);
-
-  // Load data from API
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch categories
-        const categoriesResponse = await fetch('/api/categories');
-        const categoriesData = await categoriesResponse.json();
-        
-        // Fetch restaurants
-        const restaurantsResponse = await fetch('/api/restaurants?featured=true&limit=10');
-        const restaurantsData = await restaurantsResponse.json();
-        
-        if (categoriesData.success) {
-          const mappedCategories = categoriesData.data.map((cat: any) => ({
-            id: cat.id,
-            name: cat.name,
-            icon: getCategoryIcon(cat.name),
-            active: selectedCategory === cat.name,
-            count: cat._count?.menuItems || 0
-          }));
-          setCategories(mappedCategories);
-          
-          // Set first category as default if none selected
-          if (!selectedCategory && mappedCategories.length > 0) {
-            setSelectedCategory(mappedCategories[0].name);
-          }
-        }
-        
-        if (restaurantsData.success) {
-          setRestaurants(restaurantsData.data);
-        }
-        
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  // Helper function to get category icons
-  const getCategoryIcon = (categoryName: string) => {
-    const iconMap: { [key: string]: string } = {
-      'Fast Food': '🍔',
-      'Thai Food': '🍜',
-      'Italian': '🍝',
-      'Japanese': '🍣',
-      'Dessert': '🍰',
-      'Drinks': '🥤',
-      'Pizza': '🍕',
-      'Seafood': '🦐',
-      'Vegetarian': '🥗',
-      'BBQ': '🍖'
-    };
-    return iconMap[categoryName] || '🍽️';
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % bannerSlides.length);
   };
 
-  // Functions
-  const handleAddToCart = (item: { name: string; price?: number }) => {
-    setCartCount(prev => prev + 1);
-    setSnackbarMessage(`เพิ่ม ${item.name} ลงในตะกร้าแล้ว!`);
-    setSnackbarOpen(true);
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + bannerSlides.length) % bannerSlides.length);
   };
 
-  const handleBottomNavChange = (event: React.SyntheticEvent, newValue: number) => {
-    setBottomNavValue(newValue);
-    // Handle navigation based on newValue
-    switch (newValue) {
-      case 0:
-        router.push('/');
-        break;
-      case 1:
-        router.push('/profile');
-        break;
-      case 2:
-        router.push('/favorites');
-        break;
-      case 3:
-        router.push('/cart');
-        break;
-    }
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'สวัสดีตอนเช้า';
+    if (hour < 17) return 'สวัสดีตอนบ่าย';
+    return 'สวัสดีตอนเย็น';
   };
 
-  const handleCategoryClick = (categoryName: string) => {
-    setSelectedCategory(categoryName);
-    // Update categories active state
-    setCategories(prev => prev.map(cat => ({
-      ...cat,
-      active: cat.name === categoryName
-    })));
-  };
-
-  // Swipe handlers
+  // Touch handlers for swipe
   const handleTouchStart = (e: React.TouchEvent) => {
-    setStartX(e.touches[0].clientX);
-    setIsDragging(true);
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    e.preventDefault();
+    setTouchEnd(e.targetTouches[0].clientX);
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    setIsDragging(false);
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
 
-    const endX = e.changedTouches[0].clientX;
-    const diffX = startX - endX;
-    const threshold = 50; // minimum distance for swipe
-
-    if (Math.abs(diffX) > threshold) {
-      if (diffX > 0) {
-        // Swipe left - next slide
-        setCurrentSlide((prev) => (prev + 1) % banners.length);
-      } else {
-        // Swipe right - previous slide
-        setCurrentSlide((prev) => (prev - 1 + banners.length) % banners.length);
-      }
+    if (isLeftSwipe) {
+      nextSlide();
+    }
+    if (isRightSwipe) {
+      prevSlide();
     }
   };
 
-  // Mouse handlers for desktop
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setStartX(e.clientX);
-    setIsDragging(true);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    e.preventDefault();
-  };
-
-  const handleMouseUp = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setIsDragging(false);
-
-    const endX = e.clientX;
-    const diffX = startX - endX;
-    const threshold = 50;
-
-    if (Math.abs(diffX) > threshold) {
-      if (diffX > 0) {
-        setCurrentSlide((prev) => (prev + 1) % banners.length);
-      } else {
-        setCurrentSlide((prev) => (prev - 1 + banners.length) % banners.length);
-      }
-    }
-  };
-
-  // Show loading while checking session
-  if (status === 'loading') {
+  if (isInitialLoading) {
     return (
-      <Box 
-        sx={{ 
+      <Box sx={{ 
           display: 'flex', 
+        flexDirection: 'column',
           justifyContent: 'center', 
           alignItems: 'center', 
-          minHeight: '100vh' 
-        }}
-      >
-        <CircularProgress />
+        height: '100vh',
+        bgcolor: '#FFFFFF',
+        gap: 2,
+      }}>
+        <CircularProgress sx={{ color: '#F8A66E' }} size={40} />
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            fontFamily: 'Prompt, sans-serif',
+            color: '#666',
+            fontSize: '0.9rem',
+          }}
+        >
+          กำลังโหลดข้อมูล...
+        </Typography>
       </Box>
     );
   }
 
-  // Show Onboarding if user is not authenticated
   if (!session) {
     return <Onboarding />;
   }
 
   return (
-    <Box sx={{ bgcolor: '#FFFFFF', minHeight: '100vh', pb: 8 }}>
-      {/* Header */}
+    <Box className="app-container">
       <AppHeader 
         onSidebarToggle={() => setSidebarOpen(true)}
         notificationCount={3}
         cartCount={cartCount}
         onSearchChange={(query) => setSearchQuery(query)}
+        deliveryAddress={userAddress || 'No Location'}
       />
 
-      {/* ใช้ Box แทน Container เพื่อใช้พื้นที่เต็มหน้าจอ */}
-      <Box sx={{ px: { xs: 1, sm: 2 }, py: 1 }}>
-        {/* Welcome Section - Minimal */}
-        <Box sx={{ 
-          px: 2, 
-          py: 2,
-          mb: 2,
-        }}>
+      <Box className="app-content" sx={{ bgcolor: '#FFFFFF' }}>
+        <Box sx={{ px: 2, py: 2 }}>
+          <Box sx={{ mb: 3 }}>
           <Typography
-            variant="h6"
+              variant="h5"
             sx={{
               fontFamily: 'Prompt, sans-serif',
-              fontWeight: 500,
+                fontWeight: 600,
               color: '#1A1A1A',
-              fontSize: '1.1rem',
+                fontSize: '1rem',
+                mb: 2,
             }}
           >
-            สวัสดี{session?.user?.name ? ` คุณ${session.user.name}` : ''}! 👋
+              {getGreeting()}, คุณ {session?.user?.name || 'ผู้ใช้'}!
           </Typography>
-        </Box>
 
-        {/* Banner Slider - Fade Effect */}
-        <Box sx={{ px: 2, mb: 3 }}>
-          <Box 
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onClick={(e) => {
-              if (!isDragging) {
-                console.log('Banner clicked:', banners[currentSlide].alt);
-              }
+            
+            <TextField
+              fullWidth
+              placeholder="Search dishes, restaurants"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              size="medium"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search sx={{ color: '#999', fontSize: 20 }} />
+                  </InputAdornment>
+                ),
             }}
             sx={{ 
-              position: 'relative',
-              borderRadius: 2,
-              overflow: 'hidden',
-              height: 150,
-              backgroundColor: '#F8F8F8',
-              cursor: isDragging ? 'grabbing' : 'grab',
-              userSelect: 'none',
-              '&:active': {
-                cursor: 'grabbing',
-              }
-            }}
-          >
-            {/* Background Images with Fade */}
-            {banners.map((banner, index) => (
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 3,
+                  mb:1.5,
+                  bgcolor: '#F8F8F8',
+                  border: 'none',
+                  '& fieldset': { border: 'none' },
+                  '&:hover': { bgcolor: '#F0F0F0' },
+                  '&.Mui-focused': {
+                    bgcolor: 'white',
+                    boxShadow: '0 0 0 2px rgba(248, 166, 110, 0.2)',
+                  },
+                },
+                '& .MuiOutlinedInput-input': {
+                  py: 1.5,
+                  fontSize: '0.95rem',
+                  fontFamily: 'Prompt, sans-serif',
+                  '&::placeholder': { color: '#999', opacity: 1 },
+                },
+              }}
+            />
+
+            {/* Banner Slider */}
+            <Box sx={{ mb: 3, position: 'relative', borderRadius: 3, overflow: 'hidden' }}>
               <Box
-                key={index}
+                sx={{
+                  height: 200,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  borderRadius: 3,
+                }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
+                {bannerSlides.map((slide, index) => (
+              <Box
+                    key={slide.id}
                 sx={{
                   position: 'absolute',
                   top: 0,
                   left: 0,
                   width: '100%',
                   height: '100%',
-                  backgroundImage: `url(${banner.backgroundImage})`,
+                      backgroundImage: `url(${slide.image})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
-                  backgroundRepeat: 'no-repeat',
-                  opacity: index === currentSlide ? 1 : 0,
-                  transition: 'opacity 0.5s ease-in-out',
-                  zIndex: index === currentSlide ? 2 : 1,
-                  visibility: Math.abs(index - currentSlide) <= 1 ? 'visible' : 'hidden', // Optimize rendering
+                      transform: `translateX(${(index - currentSlide) * 100}%)`,
+                      transition: 'transform 0.5s ease-in-out',
                 }}
               />
             ))}
-            {/* Minimal Slide Indicators */}
-            <Box sx={{
+
+                {/* Dots Indicator */}
+                <Box
+                  sx={{
               position: 'absolute',
-              bottom: 8,
+                    bottom: 12,
               left: '50%',
               transform: 'translateX(-50%)',
               display: 'flex',
-              gap: 0.5,
-              zIndex: 10,
-            }}>
-              {banners.map((_, index) => (
+                    gap: 1,
+                  }}
+                >
+                  {bannerSlides.map((_, index) => (
                 <Box
                   key={index}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentSlide(index);
-                  }}
+                      onClick={() => setCurrentSlide(index)}
                   sx={{
-                    width: 6,
-                    height: 6,
+                        width: 8,
+                        height: 8,
                     borderRadius: '50%',
                     bgcolor: index === currentSlide ? 'white' : 'rgba(255,255,255,0.5)',
-                    transition: 'all 0.2s ease',
                     cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
                     '&:hover': {
                       bgcolor: 'white',
-                    }
+                        },
                   }}
                 />
               ))}
             </Box>
-
-            {/* Subtle Navigation Hints */}
-            <Box
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentSlide((prev) => (prev - 1 + banners.length) % banners.length);
-              }}
-              sx={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                width: '25%',
-                height: '100%',
-                cursor: 'pointer',
-                zIndex: 5,
-                display: { xs: 'none', sm: 'block' }, // Hide on mobile (use swipe instead)
-              }}
-            />
-            <Box
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentSlide((prev) => (prev + 1) % banners.length);
-              }}
-              sx={{
-                position: 'absolute',
-                right: 0,
-                top: 0,
-                width: '25%',
-                height: '100%',
-                cursor: 'pointer',
-                zIndex: 5,
-                display: { xs: 'none', sm: 'block' }, // Hide on mobile (use swipe instead)
-              }}
-            />
           </Box>
         </Box>
 
-        {/* Top Categories */}
-        <Box sx={{ px: 2, mb: 3 }}>
+          </Box>
+
+          <Box sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography 
               variant="h6" 
@@ -432,10 +296,10 @@ export default function HomePage() {
                 fontFamily: 'Prompt, sans-serif',
                 fontWeight: 600,
                 color: '#1A1A1A',
-                fontSize: '1.1rem',
+                  fontSize: '1.2rem',
               }}
             >
-              Top Categories
+                All Categories
             </Typography>
             <Typography 
               variant="body2" 
@@ -446,128 +310,89 @@ export default function HomePage() {
                 cursor: 'pointer',
               }}
             >
-              Show All
+                See All
             </Typography>
           </Box>
 
-          {/* Categories Grid */}
-          <Box sx={{ 
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 2,
-          }}>
-            {loading ? (
-              // Loading skeleton
-              Array.from({ length: 4 }).map((_, index) => (
-                <Box
-                  key={index}
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    p: 2,
-                    bgcolor: 'white',
-                    borderRadius: 3,
-                    border: '1px solid #F0F0F0',
-                  }}
-                >
-                  <CircularProgress size={24} sx={{ mb: 1 }} />
-                  <Typography variant="caption" sx={{ color: '#999' }}>
-                    กำลังโหลด...
-                  </Typography>
-                </Box>
-              ))
-            ) : (
-              categories.slice(0, 4).map((category) => (
-                <Box
-                  key={category.id}
-                  onClick={() => handleCategoryClick(category.name)}
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    p: 2,
-                    bgcolor: 'white',
-                    borderRadius: 3,
-                    cursor: 'pointer',
-                    border: category.active ? '2px solid #F8A66E' : '1px solid #F0F0F0',
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                    },
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 2,
-                      bgcolor: category.active ? '#F8A66E15' : '#F8F8F8',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      mb: 1,
-                      fontSize: '1.5rem',
-                    }}
-                  >
-                    {category.icon}
-                  </Box>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontFamily: 'Prompt, sans-serif',
-                      fontWeight: 600,
-                      color: '#1A1A1A',
-                      fontSize: '0.8rem',
-                      textAlign: 'center',
-                      mb: 0.5,
-                    }}
-                  >
-                    {category.name}
-                  </Typography>
-
-                </Box>
-              ))
-            )}
-          </Box>
-
-          {/* Filter Tags */}
           <Box sx={{ 
             display: 'flex',
             gap: 1,
-            mt: 3,
             overflowX: 'auto',
             pb: 1,
             '&::-webkit-scrollbar': { display: 'none' },
           }}>
-            {[
-              { label: 'Over 4.5', active: true, color: '#F8A66E' },
-              { label: 'Nearby', active: false, color: '#E8E8E8' },
-              { label: 'Under 30 min', active: false, color: '#E8E8E8' },
-              { label: 'Promo', active: false, color: '#E8E8E8' },
-            ].map((filter, index) => (
               <Chip
-                key={index}
-                label={filter.label}
+                label="All"
+                icon={<Box sx={{ fontSize: '16px' }}>🔥</Box>}
+                onClick={() => setSelectedCategory('All')}
                 sx={{
-                  bgcolor: filter.active ? filter.color : 'white',
-                  color: filter.active ? 'white' : '#666',
+                  bgcolor: selectedCategory === 'All' ? '#F8A66E' : 'white',
+                  color: selectedCategory === 'All' ? 'white' : '#666',
                   fontFamily: 'Prompt, sans-serif',
                   fontWeight: 500,
-                  fontSize: '0.8rem',
-                  border: filter.active ? 'none' : '1px solid #E8E8E8',
+                  px: 2,
+                  py: 1,
+                  height: 40,
+                  borderRadius: 20,
+                  border: selectedCategory === 'All' ? 'none' : '1px solid #E8E8E8',
                   '&:hover': {
-                    bgcolor: filter.active ? filter.color : '#F5F5F5',
+                    bgcolor: selectedCategory === 'All' ? '#E8956E' : '#F8F8F8',
+                  },
+                  '& .MuiChip-icon': {
+                    color: selectedCategory === 'All' ? 'white' : '#666',
                   },
                 }}
               />
-            ))}
+              
+              <Chip
+                label="Hot Dog"
+                icon={<Box sx={{ fontSize: '16px' }}>🌭</Box>}
+                onClick={() => setSelectedCategory('Hot Dog')}
+                sx={{
+                  bgcolor: selectedCategory === 'Hot Dog' ? '#F8A66E' : 'white',
+                  color: selectedCategory === 'Hot Dog' ? 'white' : '#666',
+                  fontFamily: 'Prompt, sans-serif',
+                  fontWeight: 500,
+                  px: 2,
+                  py: 1,
+                  height: 40,
+                  borderRadius: 20,
+                  border: selectedCategory === 'Hot Dog' ? 'none' : '1px solid #E8E8E8',
+                  '&:hover': {
+                    bgcolor: selectedCategory === 'Hot Dog' ? '#E8956E' : '#F8F8F8',
+                  },
+                  '& .MuiChip-icon': {
+                    color: selectedCategory === 'Hot Dog' ? 'white' : '#666',
+                  },
+                }}
+              />
+              
+              <Chip
+                label="Burger"
+                icon={<Box sx={{ fontSize: '16px' }}>🍔</Box>}
+                onClick={() => setSelectedCategory('Burger')}
+                sx={{
+                  bgcolor: selectedCategory === 'Burger' ? '#F8A66E' : 'white',
+                  color: selectedCategory === 'Burger' ? 'white' : '#666',
+                  fontFamily: 'Prompt, sans-serif',
+                  fontWeight: 500,
+                  px: 2,
+                  py: 1,
+                  height: 40,
+                  borderRadius: 20,
+                  border: selectedCategory === 'Burger' ? 'none' : '1px solid #E8E8E8',
+                  '&:hover': {
+                    bgcolor: selectedCategory === 'Burger' ? '#E8956E' : '#F8F8F8',
+                  },
+                  '& .MuiChip-icon': {
+                    color: selectedCategory === 'Burger' ? 'white' : '#666',
+                  },
+                }}
+              />
           </Box>
         </Box>
 
-        {/* FooDoor Deals */}
-        <Box sx={{ px: 2, mb: 3 }}>
+          <Box sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography 
               variant="h6" 
@@ -575,10 +400,10 @@ export default function HomePage() {
                 fontFamily: 'Prompt, sans-serif',
                 fontWeight: 600,
                 color: '#1A1A1A',
-                fontSize: '1.1rem',
+                  fontSize: '1.2rem',
               }}
             >
-              FooDoor Deals
+                Open Restaurants
             </Typography>
             <Typography 
               variant="body2" 
@@ -589,301 +414,220 @@ export default function HomePage() {
                 cursor: 'pointer',
               }}
             >
-              Show All
+                See All
             </Typography>
           </Box>
 
-          {/* Deals Carousel */}
-          <Box sx={{ 
-            display: 'flex',
-            gap: 2,
-            overflowX: 'auto',
-            pb: 1,
-            '&::-webkit-scrollbar': { display: 'none' },
-          }}>
-            {[
-              {
-                name: 'La Casa',
-                rating: 4.9,
-                category: 'Seafood, Burgers, Coffee',
-                deliveryTime: '31 min',
-                deliveryFee: '$3.49',
-                image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=300&h=200&fit=crop'
-              },
-              {
-                name: 'Barbaras Café',
-                rating: 4.7,
-                category: 'Breakfast, Café',
-                deliveryTime: '25 min',
-                deliveryFee: '$2.99',
-                image: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=300&h=200&fit=crop'
-              },
-            ].map((deal, index) => (
-              <Card
-                key={index}
-                sx={{
-                  minWidth: 280,
-                  borderRadius: 3,
-                  overflow: 'hidden',
-                  boxShadow: 'none',
-                  border: '1px solid #F0F0F0',
-                }}
-              >
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Card sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: 'none', border: '1px solid #F0F0F0' }}>
                 <Box
                   sx={{
-                    height: 140,
-                    backgroundImage: `url(${deal.image})`,
+                    height: 180,
+                    backgroundImage: 'url(https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=200&fit=crop)',
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    position: 'relative',
                   }}
-                >
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      bottom: 8,
-                      left: 8,
-                      bgcolor: 'rgba(0,0,0,0.7)',
-                      color: 'white',
-                      px: 1,
-                      py: 0.5,
-                      borderRadius: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                    }}
-                  >
-                    <Star sx={{ fontSize: 14, color: '#F8A66E' }} />
-                    <Typography variant="caption" sx={{ fontFamily: 'Prompt, sans-serif', fontWeight: 500 }}>
-                      {deal.rating}
-                    </Typography>
-                  </Box>
-                </Box>
+                />
                 
                 <CardContent sx={{ p: 2 }}>
                   <Typography 
-                    variant="subtitle1" 
+                    variant="h6" 
                     sx={{ 
                       fontFamily: 'Prompt, sans-serif',
                       fontWeight: 600,
                       mb: 0.5,
-                      fontSize: '0.95rem',
+                      fontSize: '1.1rem',
                     }}
                   >
-                    {deal.name}
+                    Rose Garden Restaurant
                   </Typography>
                   <Typography 
                     variant="body2" 
                     sx={{ 
-                      color: '#666',
+                      color: '#999',
                       fontFamily: 'Prompt, sans-serif',
-                      fontSize: '0.8rem',
-                      mb: 1,
+                      fontSize: '0.9rem',
+                      mb: 1.5,
                     }}
                   >
-                    {deal.category}
+                    Burger - Chicken - Riche - Wings
                   </Typography>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Star sx={{ fontSize: 16, color: '#F8A66E' }} />
                     <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        color: '#999',
-                        fontFamily: 'Prompt, sans-serif',
-                      }}
-                    >
-                      {deal.deliveryTime}
-                    </Typography>
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        color: '#F8A66E',
-                        fontFamily: 'Prompt, sans-serif',
-                        fontWeight: 600,
-                      }}
-                    >
-                      Delivery {deal.deliveryFee}
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
-        </Box>
-
-        {/* Local Favorites */}
-        <Box sx={{ px: 2, mb: 6 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography 
-              variant="h6" 
+                        variant="body2" 
               sx={{ 
                 fontFamily: 'Prompt, sans-serif',
                 fontWeight: 600,
                 color: '#1A1A1A',
-                fontSize: '1.1rem',
-              }}
-            >
-              Local Favorites
+                        }}
+                      >
+                        4.7
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Box sx={{ 
+                        width: 16, 
+                        height: 16, 
+                        bgcolor: '#4CAF50', 
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <Typography sx={{ color: 'white', fontSize: '10px', fontWeight: 'bold' }}>
+                          ✓
             </Typography>
+                      </Box>
             <Typography 
               variant="body2" 
               sx={{ 
-                color: '#F8A66E',
                 fontFamily: 'Prompt, sans-serif',
+                          color: '#4CAF50',
                 fontWeight: 500,
-                cursor: 'pointer',
               }}
             >
-              Show All
+                        Free
             </Typography>
           </Box>
-
-          {/* Restaurant List */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {loading ? (
-              // Loading skeleton
-              Array.from({ length: 3 }).map((_, index) => (
-                <Card
-                  key={index}
-                  sx={{
-                    borderRadius: 4,
-                    boxShadow: 'none',
-                    bgcolor: 'white',
-                    border: '1px solid #f0f0f0',
-                  }}
-                >
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      <CircularProgress size={40} />
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="caption" sx={{ color: '#999' }}>
-                          กำลังโหลดร้านอาหาร...
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Box sx={{ 
+                        width: 16, 
+                        height: 16, 
+                        bgcolor: '#FF9800', 
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <Typography sx={{ color: 'white', fontSize: '10px', fontWeight: 'bold' }}>
+                          ⏱
+                        </Typography>
+                      </Box>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          fontFamily: 'Prompt, sans-serif',
+                          color: '#FF9800',
+                          fontWeight: 500,
+                        }}
+                      >
+                        20 min
                         </Typography>
                       </Box>
                     </Box>
                   </CardContent>
                 </Card>
-              ))
-            ) : restaurants.length > 0 ? (
-              restaurants
-                .filter(restaurant => 
-                  searchQuery === '' || 
-                  restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  restaurant.address.toLowerCase().includes(searchQuery.toLowerCase())
-                )
-                .map((restaurant) => (
-                <Card
-                  key={restaurant.id}
+
+              <Card sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: 'none', border: '1px solid #F0F0F0' }}>
+                <Box
                   sx={{
-                    borderRadius: 4,
-                    boxShadow: 'none',
-                    bgcolor: 'white',
-                    border: '1px solid #f0f0f0',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                    },
-                  }}
-                  onClick={() => router.push(`/restaurant/${restaurant.id}`)}
-                >
-                  <CardContent sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      <Box
-                        sx={{
-                          width: 60,
-                          height: 60,
-                          borderRadius: 2,
-                          backgroundImage: restaurant.image 
-                            ? `url(/api/uploads/restaurants/${restaurant.image})`
-                            : 'linear-gradient(45deg, #F35C76, #F8A66E)',
+                    height: 180,
+                    backgroundImage: 'url(https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=200&fit=crop)',
                           backgroundSize: 'cover',
                           backgroundPosition: 'center',
                         }}
                       />
-                      <Box sx={{ flex: 1 }}>
+                
+                <CardContent sx={{ p: 2 }}>
                         <Typography 
-                          variant="subtitle1" 
+                    variant="h6" 
                           sx={{ 
                             fontFamily: 'Prompt, sans-serif',
                             fontWeight: 600, 
                             mb: 0.5,
-                            color: '#1A1A1A',
+                      fontSize: '1.1rem',
                           }}
                         >
-                          {restaurant.name}
+                    Healthy Bowl
                         </Typography>
                         <Typography 
-                          variant="caption" 
+                    variant="body2" 
                           sx={{ 
-                            color: '#666', 
-                            mb: 1, 
-                            display: 'block',
+                      color: '#999',
                             fontFamily: 'Prompt, sans-serif',
+                      fontSize: '0.9rem',
+                      mb: 1.5,
                           }}
                         >
-                          {restaurant.address}
+                    Salad - Healthy - Vegetarian - Fresh
                         </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              sx={{
-                                fontSize: 12,
-                                color: i < Math.floor(restaurant.rating) ? '#F8A66E' : '#e0e0e0',
-                              }}
-                            />
-                          ))}
+                      <Star sx={{ fontSize: 16, color: '#F8A66E' }} />
                           <Typography 
-                            variant="caption" 
+                        variant="body2" 
                             sx={{ 
-                              ml: 0.5, 
-                              color: '#666',
                               fontFamily: 'Prompt, sans-serif',
-                              fontWeight: 500,
+                          fontWeight: 600,
+                          color: '#1A1A1A',
                             }}
                           >
-                            {restaurant.rating}
+                        4.5
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Box sx={{ 
+                        width: 16, 
+                        height: 16, 
+                        bgcolor: '#4CAF50', 
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <Typography sx={{ color: 'white', fontSize: '10px', fontWeight: 'bold' }}>
+                          ✓
                           </Typography>
+                      </Box>
                           <Typography 
-                            variant="caption" 
+                        variant="body2" 
                             sx={{ 
-                              ml: 1, 
-                              color: '#999',
                               fontFamily: 'Prompt, sans-serif',
+                          color: '#4CAF50',
+                          fontWeight: 500,
                             }}
                           >
-                            ({restaurant._count?.orders || 0} orders)
+                        Free
                           </Typography>
                         </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Box sx={{ 
+                        width: 16, 
+                        height: 16, 
+                        bgcolor: '#FF9800', 
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <Typography sx={{ color: 'white', fontSize: '10px', fontWeight: 'bold' }}>
+                          ⏱
+                        </Typography>
                       </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
                 <Typography 
                   variant="body2" 
                   sx={{ 
-                    color: '#999',
                     fontFamily: 'Prompt, sans-serif',
+                          color: '#FF9800',
+                          fontWeight: 500,
                   }}
                 >
-                  ไม่มีร้านอาหารในขณะนี้
+                        15 min
                 </Typography>
               </Box>
-            )}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Box>
           </Box>
         </Box>
       </Box>
 
-      {/* Sidebar */}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
       <FooterNavbar cartCount={cartCount} />
 
-      {/* Snackbar for notifications */}
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={3000}

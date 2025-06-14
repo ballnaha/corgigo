@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import { getThailandNow } from '../src/lib/timezone'
 
 const prisma = new PrismaClient()
 
@@ -127,7 +128,7 @@ async function main() {
         openTime: '08:00',
         closeTime: '22:00',
         status: 'APPROVED',
-        approvedAt: new Date(),
+        approvedAt: getThailandNow(),
         approvedBy: adminUser.id,
       }
     })

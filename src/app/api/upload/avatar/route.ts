@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ไฟล์ต้องเป็นรูปภาพเท่านั้น' }, { status: 400 });
     }
 
-    // Validate file size (max 5MB)
+    // Validate file size (max 15MB)
     if (file.size > 15 * 1024 * 1024) {
       return NextResponse.json({ error: 'ขนาดไฟล์ต้องไม่เกิน 15MB' }, { status: 400 });
     }

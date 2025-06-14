@@ -1,58 +1,238 @@
-import { useEffect, useRef } from 'react';
-import { createSocketConnection } from '@/lib/socket';
-import { SocketEvents } from '@/types';
+import { useEffect, useRef, useState } from 'react';
+import { io, Socket } from 'socket.io-client';
+import { SocketUser, OrderNotification, RiderNotification } from '@/lib/socket';
 
-export function useSocket() {
-  const socketRef = useRef<ReturnType<typeof createSocketConnection>>(null);
+interface UseSocketProps {
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    role: 'CUSTOMER' | 'RESTAURANT' | 'RIDER' | 'ADMIN';
+    restaurantId?: string;
+  };
+  autoConnect?: boolean;
+}
 
-  useEffect(() => {
-    socketRef.current = createSocketConnection();
-    
+interface TestMessage {
+  id: string;
+  message: string;
+  sender: string;
+  senderRole: string;
+  timestamp: string;
+}
+
+interface UserCounts {
+  total: number;
+  customers: number;
+  restaurants: number;
+  riders: number;
+  admins: number;
+}
+
+interface OrderStatusUpdate {
+  orderId: string;
+  status: string;
+  message?: string;
+  updatedBy: string;
+  updatedByRole: string;
+  timestamp: string;
+}
+
+export function useSocket({ user, autoConnect = true }: UseSocketProps = {}) {
+  const socketRef = useRef<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userCounts, setUserCounts] = useState<UserCounts>({
+    total: 0,
+    customers: 0,
+    restaurants: 0,
+    riders: 0,
+    admins: 0
+  });
+  const [testMessages, setTestMessages] = useState<TestMessage[]>([]);
+  const [newOrders, setNewOrders] = useState<OrderNotification[]>([]);
+  const [orderUpdates, setOrderUpdates] = useState<OrderStatusUpdate[]>([]);
+
+  // Connect to socket
+  const connect = () => {
+    if (socketRef.current?.connected) return;
+
+    socketRef.current = io(process.env.NODE_ENV === 'production' ? '' : 'https://corgigo.treetelu.com', {
+      path: '/api/socket',
+      addTrailingSlash: false,
+    });
+
+    const socket = socketRef.current;
+
+    socket.on('connect', () => {
+      console.log('Socket connected:', socket.id);
+      setIsConnected(true);
+
+      // Auto-authenticate if user data is provided
+      if (user) {
+        authenticate(user);
+      }
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Socket disconnected');
+      setIsConnected(false);
+      setIsAuthenticated(false);
+    });
+
+    socket.on('authenticated', (data) => {
+      console.log('Socket authenticated:', data);
+      setIsAuthenticated(true);
+    });
+
+    socket.on('userCountUpdate', (counts: UserCounts) => {
+      setUserCounts(counts);
+    });
+
+    socket.on('testMessage', (message: TestMessage) => {
+      console.log('Test message received:', message);
+      setTestMessages(prev => [...prev, message]);
+    });
+
+    socket.on('newOrder', (order: OrderNotification) => {
+      console.log('New order received:', order);
+      setNewOrders(prev => [...prev, order]);
+    });
+
+    socket.on('orderAvailable', (orderInfo) => {
+      console.log('Order available for delivery:', orderInfo);
+    });
+
+    socket.on('deliveryRequest', (riderData: RiderNotification) => {
+      console.log('Delivery request received:', riderData);
+    });
+
+    socket.on('orderStatusUpdate', (update: OrderStatusUpdate) => {
+      console.log('Order status update:', update);
+      setOrderUpdates(prev => [...prev, update]);
+    });
+
+    socket.on('orderCreated', (order: OrderNotification) => {
+      console.log('Order created (admin notification):', order);
+    });
+
+    socket.on('deliveryAssignment', (assignment) => {
+      console.log('Delivery assignment (admin notification):', assignment);
+    });
+  };
+
+  // Disconnect from socket
+  const disconnect = () => {
     if (socketRef.current) {
-      socketRef.current.connect();
+      socketRef.current.disconnect();
+      socketRef.current = null;
+      setIsConnected(false);
+      setIsAuthenticated(false);
+    }
+  };
+
+  // Authenticate user
+  const authenticate = (userData: UseSocketProps['user']) => {
+    if (!socketRef.current || !userData) return;
+
+    const socketUser: Omit<SocketUser, 'socketId'> = {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      restaurantId: userData.restaurantId
+    };
+
+    socketRef.current.emit('authenticate', socketUser);
+  };
+
+  // Send test message
+  const sendTestMessage = (message: string, targetRole?: string) => {
+    if (!socketRef.current || !isAuthenticated) return;
+
+    socketRef.current.emit('sendTestMessage', { message, targetRole });
+  };
+
+  // Send order notification (for testing)
+  const sendOrderNotification = (orderData: OrderNotification) => {
+    if (!socketRef.current || !isAuthenticated) return;
+
+    socketRef.current.emit('sendOrderNotification', orderData);
+  };
+
+  // Send rider notification (for testing)
+  const sendRiderNotification = (riderData: RiderNotification) => {
+    if (!socketRef.current || !isAuthenticated) return;
+
+    socketRef.current.emit('sendRiderNotification', riderData);
+  };
+
+  // Update order status
+  const updateOrderStatus = (orderId: string, status: string, message?: string) => {
+    if (!socketRef.current || !isAuthenticated) return;
+
+    socketRef.current.emit('updateOrderStatus', { orderId, status, message });
+  };
+
+  // Clear messages
+  const clearTestMessages = () => setTestMessages([]);
+  const clearNewOrders = () => setNewOrders([]);
+  const clearOrderUpdates = () => setOrderUpdates([]);
+
+  // Auto-connect on mount
+  useEffect(() => {
+    if (autoConnect) {
+      connect();
     }
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
+      disconnect();
     };
-  }, []);
+  }, [autoConnect]);
 
-  const joinUserRoom = (userId: string) => {
-    socketRef.current?.joinUserRoom(userId);
-  };
-
-  const joinRidersRoom = () => {
-    socketRef.current?.joinRidersRoom();
-  };
-
-  const joinRestaurantRoom = (restaurantId: string) => {
-    socketRef.current?.joinRestaurantRoom(restaurantId);
-  };
-
-  const on = (event: keyof SocketEvents, callback: Function) => {
-    socketRef.current?.on(event, callback);
-  };
-
-  const off = (event: keyof SocketEvents, callback?: Function) => {
-    socketRef.current?.off(event, callback);
-  };
+  // Re-authenticate when user changes
+  useEffect(() => {
+    if (user && isConnected && !isAuthenticated) {
+      authenticate(user);
+    }
+  }, [user, isConnected, isAuthenticated]);
 
   return {
-    socket: socketRef.current?.socket,
-    joinUserRoom,
-    joinRidersRoom,
-    joinRestaurantRoom,
-    on,
-    off,
+    // Connection state
+    isConnected,
+    isAuthenticated,
+    userCounts,
+    
+    // Data
+    testMessages,
+    newOrders,
+    orderUpdates,
+    
+    // Actions
+    connect,
+    disconnect,
+    authenticate,
+    sendTestMessage,
+    sendOrderNotification,
+    sendRiderNotification,
+    updateOrderStatus,
+    
+    // Utilities
+    clearTestMessages,
+    clearNewOrders,
+    clearOrderUpdates,
+    
+    // Socket instance (for advanced usage)
+    socket: socketRef.current
   };
 }
 
 export function useOrderTracking(orderId: string) {
-  const { on, off } = useSocket();
+  const { socket } = useSocket();
 
   useEffect(() => {
+    if (!socket) return;
+
     const handleOrderUpdate = (order: any) => {
       if (order.id === orderId) {
         // Handle order update
@@ -67,21 +247,21 @@ export function useOrderTracking(orderId: string) {
       }
     };
 
-    on('order:updated', handleOrderUpdate);
-    on('order:status_changed', handleStatusChange);
+    socket.on('order:updated', handleOrderUpdate);
+    socket.on('order:status_changed', handleStatusChange);
 
     return () => {
-      off('order:updated', handleOrderUpdate);
-      off('order:status_changed', handleStatusChange);
+      socket.off('order:updated', handleOrderUpdate);
+      socket.off('order:status_changed', handleStatusChange);
     };
-  }, [orderId, on, off]);
+  }, [orderId, socket]);
 }
 
 export function useRiderLocation(riderId?: string) {
-  const { on, off } = useSocket();
+  const { socket } = useSocket();
 
   useEffect(() => {
-    if (!riderId) return;
+    if (!socket || !riderId) return;
 
     const handleLocationUpdate = (data: { riderId: string; location: any }) => {
       if (data.riderId === riderId) {
@@ -90,21 +270,19 @@ export function useRiderLocation(riderId?: string) {
       }
     };
 
-    on('rider:location_updated', handleLocationUpdate);
+    socket.on('rider:location_updated', handleLocationUpdate);
 
     return () => {
-      off('rider:location_updated', handleLocationUpdate);
+      socket.off('rider:location_updated', handleLocationUpdate);
     };
-  }, [riderId, on, off]);
+  }, [riderId, socket]);
 }
 
 export function useNotifications(userId: string) {
-  const { on, off, joinUserRoom } = useSocket();
+  const { socket } = useSocket();
 
   useEffect(() => {
-    if (userId) {
-      joinUserRoom(userId);
-    }
+    if (!socket) return;
 
     const handleNewNotification = (notification: any) => {
       // Handle new notification
@@ -114,10 +292,10 @@ export function useNotifications(userId: string) {
       // e.g., react-toastify, or your custom notification system
     };
 
-    on('notification:new', handleNewNotification);
+    socket.on('notification:new', handleNewNotification);
 
     return () => {
-      off('notification:new', handleNewNotification);
+      socket.off('notification:new', handleNewNotification);
     };
-  }, [userId, on, off, joinUserRoom]);
+  }, [userId, socket]);
 } 

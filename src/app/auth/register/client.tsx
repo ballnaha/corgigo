@@ -26,6 +26,7 @@ import {
   Lock,
 } from '@mui/icons-material';
 import NoSSR from '@/components/NoSSR';
+import { useSnackbar } from '@/contexts/SnackbarContext';
 
 const theme = {
   primary: '#382c30', // Dark brown
@@ -46,9 +47,22 @@ const StyledTextField = styled(TextField)(() => ({
     backgroundColor: theme.background,
     fontSize: '1rem',
     height: '56px',
+    position: 'relative',
+    overflow: 'hidden',
+    '@media (max-width: 768px)': {
+      fontSize: '16px !important',
+      transition: 'none !important',
+      transform: 'none !important',
+      willChange: 'auto',
+      backfaceVisibility: 'hidden',
+    },
     '& .MuiOutlinedInput-notchedOutline': {
       borderColor: theme.border,
       borderWidth: '2px',
+      transition: 'border-color 0.2s ease',
+      '@media (max-width: 768px)': {
+        transition: 'none !important',
+      },
     },
     '&:hover .MuiOutlinedInput-notchedOutline': {
       borderColor: theme.accent,
@@ -57,23 +71,62 @@ const StyledTextField = styled(TextField)(() => ({
       borderColor: theme.accent,
       borderWidth: '2px',
     },
+    '&.Mui-focused': {
+      backgroundColor: theme.background,
+      transform: 'none !important',
+      '@media (max-width: 768px)': {
+        transform: 'none !important',
+        transition: 'none !important',
+      },
+    },
   },
   '& .MuiInputLabel-root': {
     fontFamily: '"Prompt", sans-serif',
     color: theme.textSecondary,
     fontSize: '1rem',
     transform: 'translate(14px, 16px) scale(1)',
+    transition: 'all 0.2s ease',
+    '@media (max-width: 768px)': {
+      fontSize: '16px !important',
+      transition: 'none !important',
+      transform: 'translate(14px, 16px) scale(1) !important',
+      willChange: 'auto',
+    },
     '&.MuiInputLabel-shrink': {
       transform: 'translate(14px, -9px) scale(0.75)',
       backgroundColor: theme.background,
       padding: '0 8px',
+      '@media (max-width: 768px)': {
+        transform: 'translate(14px, -9px) scale(0.75) !important',
+        transition: 'none !important',
+      },
     },
     '&.Mui-focused': {
       color: theme.accent,
+      '@media (max-width: 768px)': {
+        transition: 'none !important',
+      },
     },
   },
   '& .MuiOutlinedInput-input': {
     padding: '16px 14px',
+    '@media (max-width: 768px)': {
+      fontSize: '16px !important',
+      transition: 'none !important',
+      transform: 'none !important',
+      willChange: 'auto',
+      '-webkit-appearance': 'none',
+      '-webkit-tap-highlight-color': 'transparent',
+    },
+    '&:focus': {
+      outline: 'none !important',
+      backgroundColor: 'transparent !important',
+      transform: 'none !important',
+      '@media (max-width: 768px)': {
+        fontSize: '16px !important',
+        zoom: '1 !important',
+      },
+    },
   },
 }));
 
@@ -106,6 +159,7 @@ const customerSchema = z.object({
 export default function RegisterClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { showSnackbar } = useSnackbar();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -121,22 +175,176 @@ export default function RegisterClient() {
   const [targetRole, setTargetRole] = useState<'CUSTOMER' | 'RESTAURANT'>('CUSTOMER');
 
   useEffect(() => {
-    const role = searchParams.get('role');
+    const role = searchParams?.get('role');
     if (role === 'RESTAURANT') {
       setTargetRole('RESTAURANT');
     }
   }, [searchParams]);
 
+  // ป้องกันการกระพริบเมื่อ keyboard ขึ้นมาใน mobile
+  useEffect(() => {
+    // ตรวจสอบว่าเป็น mobile หรือไม่
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    if (!isMobile) return;
+
+    // เก็บค่า viewport เดิม
+    const originalViewportHeight = window.innerHeight;
+    const originalBodyHeight = document.body.style.height;
+    const originalHtmlHeight = document.documentElement.style.height;
+    
+    // ตั้งค่า viewport meta tag เพื่อป้องกัน zoom
+    const viewport = document.querySelector('meta[name=viewport]') as HTMLMetaElement;
+    const originalViewportContent = viewport?.content || '';
+    
+    if (viewport) {
+      viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    }
+    
+    // ตั้งค่า initial state สำหรับ mobile
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100vh';
+    document.documentElement.style.height = '100vh';
+    
+    // เพิ่ม CSS เพื่อป้องกันการกระพริบ
+    const style = document.createElement('style');
+    style.textContent = `
+      @media (max-width: 768px) {
+        * {
+          -webkit-backface-visibility: hidden !important;
+          backface-visibility: hidden !important;
+          -webkit-perspective: 1000px !important;
+          perspective: 1000px !important;
+        }
+        
+        input, textarea {
+          -webkit-user-select: text !important;
+          user-select: text !important;
+          -webkit-appearance: none !important;
+          appearance: none !important;
+          font-size: 16px !important;
+          transform: translateZ(0) !important;
+        }
+        
+        .MuiOutlinedInput-root {
+          transform: translateZ(0) !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+
+    const handleResize = () => {
+      // ป้องกัน viewport jumping เมื่อ keyboard ขึ้นมา
+      const currentHeight = window.innerHeight;
+      const heightDifference = originalViewportHeight - currentHeight;
+      
+      if (heightDifference > 150) { // keyboard is likely open
+        document.body.style.height = `${originalViewportHeight}px`;
+        document.documentElement.style.height = `${originalViewportHeight}px`;
+      } else {
+        document.body.style.height = '100vh';
+        document.documentElement.style.height = '100vh';
+      }
+    };
+
+    const handleFocus = (e: FocusEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        // ป้องกันการ scroll และ zoom
+        e.target.scrollIntoView = () => {}; // ปิด scrollIntoView
+        
+        // ป้องกัน iOS Safari zoom
+        if (isIOS && viewport) {
+          viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+        }
+        
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          document.body.scrollTop = 0;
+          document.documentElement.scrollTop = 0;
+        }, 50);
+      }
+    };
+
+    const handleBlur = () => {
+      // รีเซ็ต viewport เมื่อ blur
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+        document.body.scrollTop = 0;
+        document.documentElement.scrollTop = 0;
+        
+        // รีเซ็ต height
+        document.body.style.height = '100vh';
+        document.documentElement.style.height = '100vh';
+      }, 100);
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      // ป้องกัน pinch zoom
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      // ป้องกัน scroll เมื่อ keyboard เปิด
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    // เพิ่ม event listeners
+    window.addEventListener('resize', handleResize, { passive: false });
+    document.addEventListener('focusin', handleFocus, { passive: false });
+    document.addEventListener('focusout', handleBlur, { passive: false });
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      // รีเซ็ตค่าเดิม
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = originalBodyHeight;
+      document.documentElement.style.height = originalHtmlHeight;
+      
+      // รีเซ็ต viewport
+      if (viewport && originalViewportContent) {
+        viewport.content = originalViewportContent;
+      }
+      
+      // ลบ style ที่เพิ่มเข้าไป
+      document.head.removeChild(style);
+      
+      // ลบ event listeners
+      window.removeEventListener('resize', handleResize);
+      document.removeEventListener('focusin', handleFocus);
+      document.removeEventListener('focusout', handleBlur);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
+
   const handleChange = (field: string) => (e: any) => {
+    const value = e.target.value;
     setFormData(prev => ({
       ...prev,
-      [field]: e.target.value
+      [field]: value
     }));
     
+    // ล้าง error ของ field นั้นๆ
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
         [field]: ''
+      }));
+    }
+
+    // Real-time validation สำหรับ field สำคัญ
+    if (field === 'confirmPassword' && formData.password && value && value !== formData.password) {
+      setErrors(prev => ({
+        ...prev,
+        confirmPassword: 'รหัสผ่านไม่ตรงกัน'
       }));
     }
   };
@@ -164,6 +372,7 @@ export default function RegisterClient() {
     e.preventDefault();
     
     if (!validateForm()) {
+      showSnackbar('กรุณาตรวจสอบข้อมูลและแก้ไขข้อผิดพลาด', 'error');
       return;
     }
 
@@ -187,10 +396,16 @@ export default function RegisterClient() {
         throw new Error(result.error || 'เกิดข้อผิดพลาดในการสมัครสมาชิก');
       }
 
-      router.push('/auth/login?message=register-success');
+      showSnackbar('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ', 'success');
+      
+      // รอ 1.5 วินาทีก่อน redirect เพื่อให้เห็น success message
+      setTimeout(() => {
+        router.push('/auth/login?message=register-success');
+      }, 1500);
       
     } catch (error: any) {
-      setErrors({ submit: error.message });
+      showSnackbar(error.message, 'error');
+      setErrors({ submit: error.message }); // เก็บไว้สำหรับ UI fallback
     } finally {
       setLoading(false);
     }
@@ -204,15 +419,22 @@ export default function RegisterClient() {
     <NoSSR>
       <Box
         sx={{
-          minHeight: '100dvh',
-          width: '100vw',
+          minHeight: '100vh',
+          width: '100%',
           display: 'flex',
           flexDirection: 'column',
           background: `linear-gradient(135deg, ${theme.background} 0%, ${theme.surface} 100%)`,
           margin: 0,
           padding: 0,
-          overflowX: 'hidden', // ป้องกัน horizontal scroll เท่านั้น
+          overflowX: 'hidden',
+          overflowY: 'auto',
           position: 'relative',
+          // ปรับปรุงสำหรับ mobile
+          '@media (max-width: 768px)': {
+            minHeight: '100vh',
+            height: '100vh',
+            maxHeight: '100vh',
+          },
         }}
       >
         <Box
@@ -223,6 +445,7 @@ export default function RegisterClient() {
             right: 0,
             padding: '1rem',
             paddingTop: 'max(1rem, env(safe-area-inset-top) + 0.5rem)',
+            
             zIndex: 10,
           }}
         >
@@ -251,15 +474,24 @@ export default function RegisterClient() {
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'flex-start', // เปลี่ยนจาก center เป็น flex-start
+            justifyContent: 'flex-start',
             alignItems: 'center',
-            padding: '5rem 1.5rem 2rem', // เพิ่ม top padding สำหรับ header
+            padding: '5rem 1.5rem 2rem',
             paddingBottom: 'max(2rem, env(safe-area-inset-bottom) + 1rem)',
             position: 'relative',
             width: '100%',
             maxWidth: '400px',
             margin: '0 auto',
-            minHeight: '100dvh', // ใช้ minHeight แทน height
+            minHeight: 'calc(100vh - 2rem)',
+            // ปรับปรุงสำหรับ mobile
+            '@media (max-width: 768px)': {
+              minHeight: '100vh',
+              height: '100vh',
+              justifyContent: 'flex-start',
+              paddingTop: '8vh',
+              padding: '8vh 1.5rem 2rem',
+              
+            },
           }}
         >
           <Fade in={true} timeout={600}>
@@ -267,7 +499,11 @@ export default function RegisterClient() {
               <Box
                 sx={{
                   textAlign: 'center',
-                  marginBottom: '1.5rem', // ลด margin
+                  marginBottom: '1.5rem',
+                  position: 'relative',
+                  '@media (max-width: 768px)': {
+                    marginBottom: '1rem',
+                  },
                 }}
               >
 
@@ -318,7 +554,12 @@ export default function RegisterClient() {
                       </InputAdornment>
                     ),
                   }}
-                  sx={{ mb: 1.5 }} // ลด spacing
+                  sx={{ 
+                    mb: 3,
+                    '@media (max-width: 768px)': {
+                      mb: 2,
+                    },
+                  }}
                 />
 
                 <StyledTextField
@@ -336,7 +577,12 @@ export default function RegisterClient() {
                       </InputAdornment>
                     ),
                   }}
-                  sx={{ mb: 1.5 }} // ลด spacing
+                  sx={{ 
+                    mb: 3,
+                    '@media (max-width: 768px)': {
+                      mb: 2,
+                    },
+                  }}
                 />
 
                 <StyledTextField
@@ -355,7 +601,12 @@ export default function RegisterClient() {
                       </InputAdornment>
                     ),
                   }}
-                  sx={{ mb: 1.5 }} // ลด spacing
+                  sx={{ 
+                    mb: 3,
+                    '@media (max-width: 768px)': {
+                      mb: 2,
+                    },
+                  }}
                 />
 
                 <StyledTextField
@@ -374,7 +625,12 @@ export default function RegisterClient() {
                       </InputAdornment>
                     ),
                   }}
-                  sx={{ mb: 2 }}
+                  sx={{ 
+                    mb: 3,
+                    '@media (max-width: 768px)': {
+                      mb: 2,
+                    },
+                  }}
                 />
 
                 <StyledTextField
@@ -404,7 +660,12 @@ export default function RegisterClient() {
                       </InputAdornment>
                     ),
                   }}
-                  sx={{ mb: 1.5 }} // ลด spacing
+                  sx={{ 
+                    mb: 3,
+                    '@media (max-width: 768px)': {
+                      mb: 2,
+                    },
+                  }}
                 />
 
                 <StyledTextField
@@ -434,7 +695,12 @@ export default function RegisterClient() {
                       </InputAdornment>
                     ),
                   }}
-                  sx={{ mb: 2.5 }} // ลด spacing ก่อนปุ่ม
+                  sx={{ 
+                    mb: 3,
+                    '@media (max-width: 768px)': {
+                      mb: 2,
+                    },
+                  }}
                 />
 
                 <Button
@@ -516,6 +782,7 @@ export default function RegisterClient() {
                       fontFamily: '"Prompt", sans-serif',
                       fontWeight: 500,
                       fontSize: '1rem',
+                      marginBottom: 'max(1rem, env(safe-area-inset-bottom) + 0.5rem)',
                       '&:hover': {
                         borderColor: theme.secondary,
                         color: '#fff',

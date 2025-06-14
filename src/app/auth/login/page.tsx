@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -38,15 +38,20 @@ const theme = {
 };
 
 const FullScreenContainer = styled(Box)(() => ({
-  minHeight: '100dvh', // เปลี่ยนเป็น minHeight
+  minHeight: '100dvh',
   width: '100vw',
   display: 'flex',
   flexDirection: 'column',
   background: `linear-gradient(135deg, ${theme.background} 0%, ${theme.surface} 100%)`,
   margin: 0,
   padding: 0,
-  overflowX: 'hidden', // ป้องกัน horizontal scroll เท่านั้น
+  overflowX: 'hidden',
   position: 'relative',
+  '@media (max-width: 768px)': {
+    minHeight: '100vh',
+    height: '100vh',
+    maxHeight: '100vh',
+  },
 }));
 
 const HeaderContainer = styled(Box)(() => ({
@@ -65,19 +70,28 @@ const ContentWrapper = styled(Box)(() => ({
   flexDirection: 'column',
   justifyContent: 'center',
   alignItems: 'center',
-  padding: '5rem 1.5rem 2rem', // เพิ่ม top padding สำหรับ header
+  padding: '2rem 1.5rem 2rem',
   paddingBottom: 'max(2rem, env(safe-area-inset-bottom) + 1rem)',
   position: 'relative',
   width: '100%',
   maxWidth: '400px',
   margin: '0 auto',
-  minHeight: '100dvh', // ใช้ minHeight แทน height
+  minHeight: '100dvh',
+  '@media (max-width: 768px)': {
+    minHeight: '100vh',
+    height: '100vh',
+    justifyContent: 'flex-start',
+    paddingTop: '10vh',
+  },
 }));
 
 const BrandContainer = styled(Box)(() => ({
   textAlign: 'center',
   marginBottom: '2rem',
   position: 'relative',
+  '@media (max-width: 768px)': {
+    marginBottom: '1.5rem',
+  },
 }));
 
 const StyledTextField = styled(TextField)(() => ({
@@ -86,9 +100,22 @@ const StyledTextField = styled(TextField)(() => ({
     backgroundColor: theme.background,
     fontSize: '1rem',
     height: '56px',
+    position: 'relative',
+    overflow: 'hidden',
+    '@media (max-width: 768px)': {
+      fontSize: '16px !important',
+      transition: 'none !important',
+      transform: 'none !important',
+      willChange: 'auto',
+      backfaceVisibility: 'hidden',
+    },
     '& .MuiOutlinedInput-notchedOutline': {
       borderColor: theme.border,
       borderWidth: '2px',
+      transition: 'border-color 0.2s ease',
+      '@media (max-width: 768px)': {
+        transition: 'none !important',
+      },
     },
     '&:hover .MuiOutlinedInput-notchedOutline': {
       borderColor: theme.accent,
@@ -97,23 +124,62 @@ const StyledTextField = styled(TextField)(() => ({
       borderColor: theme.accent,
       borderWidth: '2px',
     },
+    '&.Mui-focused': {
+      backgroundColor: theme.background,
+      transform: 'none !important',
+      '@media (max-width: 768px)': {
+        transform: 'none !important',
+        transition: 'none !important',
+      },
+    },
   },
   '& .MuiInputLabel-root': {
     fontFamily: '"Prompt", sans-serif',
     color: theme.textSecondary,
     fontSize: '1rem',
     transform: 'translate(14px, 16px) scale(1)',
+    transition: 'all 0.2s ease',
+    '@media (max-width: 768px)': {
+      fontSize: '16px !important',
+      transition: 'none !important',
+      transform: 'translate(14px, 16px) scale(1) !important',
+      willChange: 'auto',
+    },
     '&.MuiInputLabel-shrink': {
       transform: 'translate(14px, -9px) scale(0.75)',
       backgroundColor: theme.background,
       padding: '0 8px',
+      '@media (max-width: 768px)': {
+        transform: 'translate(14px, -9px) scale(0.75) !important',
+        transition: 'none !important',
+      },
     },
     '&.Mui-focused': {
       color: theme.accent,
+      '@media (max-width: 768px)': {
+        transition: 'none !important',
+      },
     },
   },
   '& .MuiOutlinedInput-input': {
     padding: '16px 14px',
+    '@media (max-width: 768px)': {
+      fontSize: '16px !important',
+      transition: 'none !important',
+      transform: 'none !important',
+      willChange: 'auto',
+      '-webkit-appearance': 'none',
+      '-webkit-tap-highlight-color': 'transparent',
+    },
+    '&:focus': {
+      outline: 'none !important',
+      backgroundColor: 'transparent !important',
+      transform: 'none !important',
+      '@media (max-width: 768px)': {
+        fontSize: '16px !important',
+        zoom: '1 !important',
+      },
+    },
   },
 }));
 
@@ -124,6 +190,150 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+
+  // ป้องกันการกระพริบเมื่อ keyboard ขึ้นมาใน mobile
+  useEffect(() => {
+    // ตรวจสอบว่าเป็น mobile หรือไม่
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    if (!isMobile) return;
+
+    // เก็บค่า viewport เดิม
+    const originalViewportHeight = window.innerHeight;
+    const originalBodyHeight = document.body.style.height;
+    const originalHtmlHeight = document.documentElement.style.height;
+    
+    // ตั้งค่า viewport meta tag เพื่อป้องกัน zoom
+    const viewport = document.querySelector('meta[name=viewport]') as HTMLMetaElement;
+    const originalViewportContent = viewport?.content || '';
+    
+    if (viewport) {
+      viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    }
+    
+    // ตั้งค่า initial state สำหรับ mobile
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100vh';
+    document.documentElement.style.height = '100vh';
+    
+    // เพิ่ม CSS เพื่อป้องกันการกระพริบ
+    const style = document.createElement('style');
+    style.textContent = `
+      @media (max-width: 768px) {
+        * {
+          -webkit-backface-visibility: hidden !important;
+          backface-visibility: hidden !important;
+          -webkit-perspective: 1000px !important;
+          perspective: 1000px !important;
+        }
+        
+        input, textarea {
+          -webkit-user-select: text !important;
+          user-select: text !important;
+          -webkit-appearance: none !important;
+          appearance: none !important;
+          font-size: 16px !important;
+          transform: translateZ(0) !important;
+        }
+        
+        .MuiOutlinedInput-root {
+          transform: translateZ(0) !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+
+    const handleResize = () => {
+      // ป้องกัน viewport jumping เมื่อ keyboard ขึ้นมา
+      const currentHeight = window.innerHeight;
+      const heightDifference = originalViewportHeight - currentHeight;
+      
+      if (heightDifference > 150) { // keyboard is likely open
+        document.body.style.height = `${originalViewportHeight}px`;
+        document.documentElement.style.height = `${originalViewportHeight}px`;
+      } else {
+        document.body.style.height = '100vh';
+        document.documentElement.style.height = '100vh';
+      }
+    };
+
+    const handleFocus = (e: FocusEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        // ป้องกันการ scroll และ zoom
+        e.target.scrollIntoView = () => {}; // ปิด scrollIntoView
+        
+        // ป้องกัน iOS Safari zoom
+        if (isIOS && viewport) {
+          viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+        }
+        
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          document.body.scrollTop = 0;
+          document.documentElement.scrollTop = 0;
+        }, 50);
+      }
+    };
+
+    const handleBlur = () => {
+      // รีเซ็ต viewport เมื่อ blur
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+        document.body.scrollTop = 0;
+        document.documentElement.scrollTop = 0;
+        
+        // รีเซ็ต height
+        document.body.style.height = '100vh';
+        document.documentElement.style.height = '100vh';
+      }, 100);
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      // ป้องกัน pinch zoom
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      // ป้องกัน scroll เมื่อ keyboard เปิด
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    // เพิ่ม event listeners
+    window.addEventListener('resize', handleResize, { passive: false });
+    document.addEventListener('focusin', handleFocus, { passive: false });
+    document.addEventListener('focusout', handleBlur, { passive: false });
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      // รีเซ็ตค่าเดิม
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = originalBodyHeight;
+      document.documentElement.style.height = originalHtmlHeight;
+      
+      // รีเซ็ต viewport
+      if (viewport && originalViewportContent) {
+        viewport.content = originalViewportContent;
+      }
+      
+      // ลบ style ที่เพิ่มเข้าไป
+      document.head.removeChild(style);
+      
+      // ลบ event listeners
+      window.removeEventListener('resize', handleResize);
+      document.removeEventListener('focusin', handleFocus);
+      document.removeEventListener('focusout', handleBlur);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,28 +370,6 @@ export default function LoginPage() {
   return (
     <NoSSR>
       <FullScreenContainer>
-        {/* Header with Back Button */}
-        <HeaderContainer>
-          <IconButton
-            onClick={handleBack}
-            sx={{
-              bgcolor: theme.background,
-              width: 48,
-              height: 48,
-              border: `1px solid ${theme.border}`,
-              boxShadow: `0 4px 12px ${theme.accent}20`,
-              '&:hover': { 
-                bgcolor: theme.surface,
-                transform: 'translateY(-1px)',
-                boxShadow: `0 6px 16px ${theme.accent}30`,
-              },
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <ArrowBack sx={{ fontSize: 20, color: theme.textSecondary }} />
-          </IconButton>
-        </HeaderContainer>
-
         <ContentWrapper>
           <Fade in={true} timeout={600}>
             <Box sx={{ width: '100%' }}>
@@ -402,6 +590,122 @@ export default function LoginPage() {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        
+        /* ป้องกันการกระพริบใน mobile */
+        @media (max-width: 768px) {
+          html {
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+            height: 100%;
+            overflow-x: hidden;
+          }
+          
+          body {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            overscroll-behavior: none;
+            height: 100%;
+            overflow-x: hidden;
+            position: fixed;
+            width: 100%;
+          }
+          
+          input, textarea {
+            -webkit-user-select: text;
+            -khtml-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            border-radius: 0;
+            background-color: transparent !important;
+          }
+          
+          /* ปิด transition ทั้งหมดใน mobile */
+          * {
+            -webkit-transition: none !important;
+            -moz-transition: none !important;
+            -o-transition: none !important;
+            transition: none !important;
+          }
+          
+          /* ยกเว้น animation ที่จำเป็น */
+          .MuiCircularProgress-root,
+          .MuiCircularProgress-svg,
+          [class*="spin"] {
+            -webkit-transition: all 0.3s ease !important;
+            -moz-transition: all 0.3s ease !important;
+            -o-transition: all 0.3s ease !important;
+            transition: all 0.3s ease !important;
+          }
+          
+          /* ป้องกัน viewport jumping */
+          .MuiOutlinedInput-root {
+            transition: none !important;
+            transform: none !important;
+            will-change: auto !important;
+          }
+          
+          .MuiInputLabel-root {
+            transition: none !important;
+            transform: translate(14px, 16px) scale(1) !important;
+            will-change: auto !important;
+          }
+          
+          .MuiInputLabel-shrink {
+            transform: translate(14px, -9px) scale(0.75) !important;
+          }
+          
+          /* ป้องกัน flash of content */
+          .MuiOutlinedInput-notchedOutline {
+            transition: none !important;
+            will-change: auto !important;
+          }
+          
+          /* ป้องกัน focus effects */
+          .MuiOutlinedInput-root.Mui-focused {
+            transform: none !important;
+            box-shadow: none !important;
+          }
+          
+          /* ป้องกัน input zoom */
+          input:focus {
+            transform: none !important;
+            zoom: 1 !important;
+          }
+        }
+        
+        /* ป้องกัน iOS Safari zoom */
+        @supports (-webkit-touch-callout: none) {
+          input[type="email"],
+          input[type="password"],
+          input[type="text"],
+          textarea {
+            font-size: 16px !important;
+            transform: none !important;
+          }
+          
+          /* ป้องกัน Safari viewport bug */
+          body {
+            position: fixed;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+          }
+          
+          #__next {
+            height: 100%;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+          }
         }
       `}</style>
     </NoSSR>

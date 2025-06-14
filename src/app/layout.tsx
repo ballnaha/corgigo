@@ -4,6 +4,8 @@ import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
 import ThemeProvider from "@/components/ThemeProvider";
 import { SnackbarProvider } from "@/contexts/SnackbarContext";
+import { NavigationProvider } from "@/contexts/NavigationContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 
 const prompt = Prompt({
   subsets: ["latin", "thai"],
@@ -14,6 +16,13 @@ const prompt = Prompt({
 export const metadata: Metadata = {
   title: "CorgiGo - Food Delivery App",
   description: "ระบบสั่งอาหาร รวดเร็ว ปลอดภัย",
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: 'cover',
+  },
 };
 
 export default function RootLayout({
@@ -30,7 +39,11 @@ export default function RootLayout({
         <ThemeProvider>
           <SessionProvider>
             <SnackbarProvider>
+              <NavigationProvider>
+                <NotificationProvider>
             {children}
+                </NotificationProvider>
+              </NavigationProvider>
             </SnackbarProvider>
           </SessionProvider>
         </ThemeProvider>

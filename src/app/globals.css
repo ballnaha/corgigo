@@ -193,6 +193,83 @@ p, span, div {
     padding: 0.5rem !important;
     margin: 0.25rem 0 !important;
   }
+
+  /* ป้องกัน iOS Safari zoom */
+  input[type="email"],
+  input[type="password"],
+  input[type="text"],
+  input[type="tel"],
+  textarea,
+  select {
+    font-size: 16px !important;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    transform: none !important;
+    transition: none !important;
+    will-change: auto;
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
+
+  /* ป้องกัน Material-UI transitions */
+  .MuiOutlinedInput-root,
+  .MuiInputLabel-root,
+  .MuiOutlinedInput-notchedOutline,
+  .MuiInputBase-root {
+    transition: none !important;
+    transform: none !important;
+    will-change: auto !important;
+  }
+
+  /* ป้องกัน focus effects */
+  .MuiOutlinedInput-root.Mui-focused {
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .MuiInputLabel-root.Mui-focused {
+    transition: none !important;
+  }
+
+  /* ป้องกัน viewport jumping */
+  html {
+    height: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+  }
+
+  body {
+    height: 100%;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    overscroll-behavior: none;
+  }
+
+  /* ป้องกัน pinch zoom */
+  * {
+    -ms-touch-action: manipulation;
+    touch-action: manipulation;
+  }
+}
+
+/* ป้องกัน iOS Safari specific issues */
+@supports (-webkit-touch-callout: none) {
+  input:focus {
+    font-size: 16px !important;
+    transform: none !important;
+    zoom: 1 !important;
+  }
+
+  /* ป้องกัน Safari viewport bug */
+  body {
+    position: relative;
+    overflow-x: hidden;
+  }
 }
 
 /* NoSSR Fallback Styles */
@@ -229,6 +306,27 @@ p, span, div {
 
 .mui-fixed.mui-loaded {
   visibility: visible;
+}
+
+/* App Container - Fixed Layout สำหรับหน้าที่ใช้ AppLayout */
+.app-container {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Scrollable Content Area */
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: calc(100vh - 64px - 68px - env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - 64px - 68px - env(safe-area-inset-bottom, 0px));
+  -webkit-overflow-scrolling: touch;
+  position: relative;
 }
 
 /* Override สำหรับหน้าที่ไม่ต้องการ footer spacing */

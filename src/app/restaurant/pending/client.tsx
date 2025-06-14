@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
-  Container,
   Typography,
   Card,
   CardContent,
@@ -34,8 +33,7 @@ import {
   LocationOn,
   Business,
 } from '@mui/icons-material';
-import AppHeader from '@/components/AppHeader';
-import FooterNavbar from '@/components/FooterNavbar';
+import AppLayout from '@/components/AppLayout';
 
 interface RestaurantStatus {
   id: string;
@@ -45,8 +43,11 @@ interface RestaurantStatus {
   phone: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   submittedAt: string;
+  submittedAtThai?: string;
   approvedAt?: string;
+  approvedAtThai?: string;
   rejectedAt?: string;
+  rejectedAtThai?: string;
   rejectReason?: string;
 }
 
@@ -73,10 +74,15 @@ export default function RestaurantPendingClient() {
       if (response.ok && result.success) {
           setRestaurant(result.restaurant);
           
-          // Format date on client side to avoid hydration mismatch
-          if (result.restaurant.submittedAt) {
-            const date = new Date(result.restaurant.submittedAt);
-            const formatted = date.toLocaleDateString('th-TH', {
+          // ใช้เวลาไทยที่ส่งมาจาก API
+          if (result.restaurant.submittedAtThai) {
+            // แปลงจาก yyyy-MM-dd HH:mm:ss เป็นรูปแบบไทย
+            const [datePart, timePart] = result.restaurant.submittedAtThai.split(' ');
+            const [year, month, day] = datePart.split('-');
+            const [hour, minute] = timePart.split(':');
+            
+            const thaiDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+            const formatted = thaiDate.toLocaleDateString('th-TH', {
               year: 'numeric',
               month: 'long',
               day: 'numeric',
@@ -87,7 +93,7 @@ export default function RestaurantPendingClient() {
           
           // คำนวณเวลาที่ผ่านไปและเวลาที่เหลือ
           const now = new Date();
-          const diffTime = Math.abs(now.getTime() - date.getTime());
+          const diffTime = Math.abs(now.getTime() - thaiDate.getTime());
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
           
           // คำนวณ progress bar
@@ -109,10 +115,14 @@ export default function RestaurantPendingClient() {
           setProgress(0);
         }
         
-        // Format approved date
-        if (result.restaurant.approvedAt) {
-          const approvedDate = new Date(result.restaurant.approvedAt);
-          const formattedApproved = approvedDate.toLocaleDateString('th-TH', {
+        // Format approved date - ใช้เวลาไทยจาก API
+        if (result.restaurant.approvedAtThai) {
+          const [datePart, timePart] = result.restaurant.approvedAtThai.split(' ');
+          const [year, month, day] = datePart.split('-');
+          const [hour, minute] = timePart.split(':');
+          
+          const thaiApprovedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+          const formattedApproved = thaiApprovedDate.toLocaleDateString('th-TH', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -122,10 +132,14 @@ export default function RestaurantPendingClient() {
           setFormattedApprovedDate(formattedApproved);
         }
         
-        // Format rejected date
-        if (result.restaurant.rejectedAt) {
-          const rejectedDate = new Date(result.restaurant.rejectedAt);
-          const formattedRejected = rejectedDate.toLocaleDateString('th-TH', {
+        // Format rejected date - ใช้เวลาไทยจาก API
+        if (result.restaurant.rejectedAtThai) {
+          const [datePart, timePart] = result.restaurant.rejectedAtThai.split(' ');
+          const [year, month, day] = datePart.split('-');
+          const [hour, minute] = timePart.split(':');
+          
+          const thaiRejectedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+          const formattedRejected = thaiRejectedDate.toLocaleDateString('th-TH', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -258,14 +272,12 @@ export default function RestaurantPendingClient() {
   // แสดง error ถ้ามี
   if (error) {
     return (
-      <Box sx={{ 
-        backgroundColor: '#FAFAFA',
-        minHeight: '100vh',
-        fontFamily: 'Prompt, sans-serif',
-        paddingBottom: '80px',
-      }}>
-        <AppHeader />
-        <Container maxWidth="sm" sx={{ py: 4, px: 3 }}>
+      <AppLayout 
+        showBackOnly 
+        backTitle="สถานะการสมัคร"
+        contentSx={{ py: 4, px: 3 }}
+      >
+        <Box sx={{ maxWidth: 'sm', mx: 'auto' }}>
           <Alert 
             severity="error" 
             sx={{ 
@@ -293,28 +305,27 @@ export default function RestaurantPendingClient() {
           >
             สมัครเปิดร้านอาหาร
           </Button>
-        </Container>
-        <FooterNavbar />
-      </Box>
+        </Box>
+      </AppLayout>
     );
   }
 
   return (
-    <Box sx={{ 
-      backgroundColor: '#FFFFFF',
-      minHeight: '100vh',
-      paddingBottom: '80px',
-      fontFamily: 'Prompt, sans-serif',
-    }}>
-      <AppHeader />
-      
+    <AppLayout 
+      showBackOnly 
+      backTitle="สถานะการสมัคร"
+      hideFooter
+      contentSx={{ 
+        fontFamily: 'Prompt, sans-serif',
+      }}
+    >
       {/* Header Section - Full Width */}
       <Box
         sx={{
           background: 'linear-gradient(180deg, #FFFFFF 0%, #FAFAFA 100%)',
           pt: 3,
           pb: 2,
-          px: 2, // ลด padding เหลือเพียง 16px
+          px: 2,
           textAlign: 'center',
           position: 'relative',
           width: '100%',
@@ -594,8 +605,7 @@ export default function RestaurantPendingClient() {
                   {[
                     { icon: <Security />, title: 'ความถูกต้องของข้อมูลร้านอาหาร' },
                     { icon: <Assignment />, title: 'เอกสารประกอบการสมัคร' },
-                    { icon: <LocationOn />, title: 'ความเหมาะสมของสถานที่ตั้ง' },
-                    { icon: <Business />, title: 'การปฏิบัติตามกฎระเบียบด้านอาหาร' },
+                    
                   ].map((item, index) => (
                     <Box key={index} sx={{ display: 'flex', alignItems: 'center' }}>
                       <Box sx={{ 
@@ -617,59 +627,7 @@ export default function RestaurantPendingClient() {
             </Card>
             )}
 
-          {/* Contact Information */}
-          <Card 
-            elevation={0}
-            sx={{ 
-              borderRadius: 3,
-              border: '1px solid #E8E8E8',
-              bgcolor: '#FFFFFF',
-              mb: 2,
-            }}
-          >
-            <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                <Phone sx={{ color: '#666', mr: 1.5, fontSize: 20 }} />
-                <Typography 
-                  variant="subtitle1" 
-                  sx={{ 
-                    fontFamily: 'Prompt, sans-serif',
-                    fontWeight: 600, 
-                    color: '#1A1A1A', 
-                  }}
-                >
-                  ติดต่อเรา
-                </Typography>
-              </Box>
-              
-              <Stack spacing={2}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Email sx={{ color: '#F8A66E', mr: 2, fontSize: 18 }} />
-                  <Box>
-                    <Typography variant="body2" sx={{ color: '#666', fontSize: '0.75rem', fontFamily: 'Prompt, sans-serif' }}>
-                      อีเมล
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#F8A66E', fontFamily: 'Prompt, sans-serif' }}>
-                      support@corgigo.com
-                    </Typography>
-                  </Box>
-                </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Phone sx={{ color: '#F8A66E', mr: 2, fontSize: 18 }} />
-                  <Box>
-                    <Typography variant="body2" sx={{ color: '#666', fontSize: '0.75rem', fontFamily: 'Prompt, sans-serif' }}>
-                      โทรศัพท์
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#F8A66E', fontFamily: 'Prompt, sans-serif' }}>
-                      02-123-4567
-                    </Typography>
-                  </Box>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-
+ 
             {/* Action Buttons */}
           {(restaurant?.status === 'PENDING' || restaurant?.status === 'REJECTED') && (
             <Box sx={{ mt: 3 }}>
@@ -696,8 +654,6 @@ export default function RestaurantPendingClient() {
             </Box>
               )}
         </Box>
-
-      <FooterNavbar />
-    </Box>
+    </AppLayout>
   );
 } 

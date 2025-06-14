@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { formatThailandTime } from '@/lib/timezone';
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,8 +49,11 @@ export async function GET(request: NextRequest) {
         phone: restaurant.phone,
         status: restaurant.status,
         submittedAt: restaurant.createdAt.toISOString(),
+        submittedAtThai: formatThailandTime(restaurant.createdAt, 'yyyy-MM-dd HH:mm:ss'),
         approvedAt: restaurant.approvedAt?.toISOString(),
+        approvedAtThai: restaurant.approvedAt ? formatThailandTime(restaurant.approvedAt, 'yyyy-MM-dd HH:mm:ss') : null,
         rejectedAt: restaurant.rejectedAt?.toISOString(),
+        rejectedAtThai: restaurant.rejectedAt ? formatThailandTime(restaurant.rejectedAt, 'yyyy-MM-dd HH:mm:ss') : null,
         rejectReason: restaurant.rejectReason,
       }
     });

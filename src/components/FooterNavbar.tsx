@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   BottomNavigation,
   BottomNavigationAction,
@@ -11,18 +11,20 @@ import {
 import {
   Home,
   Search,
-  FavoriteOutlined,
   ShoppingCartOutlined,
   Person,
+  History,
+  MoreVert,
 } from '@mui/icons-material';
+import { useAppNavigation } from '@/hooks/useAppNavigation';
 
 interface FooterNavbarProps {
   cartCount?: number;
 }
 
 const FooterNavbar = ({ cartCount = 0 }: FooterNavbarProps) => {
-  const router = useRouter();
   const pathname = usePathname();
+  const { navigateToHome, navigateToOrders, navigateToSettings, navigateToProfile } = useAppNavigation();
 
   // กำหนดเส้นทางที่ไม่ควรแสดง FooterNavbar
   const hiddenPaths = ['/auth/login', '/auth/register', '/admin', '/onboarding'];
@@ -35,8 +37,8 @@ const FooterNavbar = ({ cartCount = 0 }: FooterNavbarProps) => {
   // กำหนดค่า active tab ตาม pathname
   const getActiveTab = () => {
     if (pathname === '/') return 0;
-    if (pathname?.startsWith('/search')) return 1;
-    if (pathname?.startsWith('/cart')) return 2;
+    if (pathname?.startsWith('/orders')) return 1;
+    if (pathname?.startsWith('/settings')) return 2;
     if (pathname?.startsWith('/profile')) return 3;
     return 0; // default to home
   };
@@ -44,16 +46,16 @@ const FooterNavbar = ({ cartCount = 0 }: FooterNavbarProps) => {
   const handleNavigation = (event: React.SyntheticEvent, newValue: number) => {
     switch (newValue) {
       case 0:
-        router.push('/');
+        navigateToHome();
         break;
       case 1:
-        router.push('/search');
+        navigateToOrders();
         break;
       case 2:
-        router.push('/cart');
+        navigateToSettings();
         break;
       case 3:
-        router.push('/profile');
+        navigateToProfile();
         break;
     }
   };
@@ -61,19 +63,26 @@ const FooterNavbar = ({ cartCount = 0 }: FooterNavbarProps) => {
   return (
     <Box
       sx={{
-        position: 'sticky',
+        position: 'fixed',
         bottom: 0,
         left: 0,
         right: 0,
         zIndex: 1200,
-        borderRadius: '20px 20px 0 0',
-        backgroundColor: '#FFFFFF',
-        borderTop: '1px solid #F0F0F0',
+        // Mobile app style - flat design
+        borderRadius: 0,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderTop: '0.5px solid rgba(0, 0, 0, 0.05)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        // เอา shadow ออกหมด
-        boxShadow: 'none',
-        // Sticky positioning เหมือน AppHeader
-        marginTop: 'auto',
+        // Native mobile app shadow
+        boxShadow: '0 -1px 3px rgba(0, 0, 0, 0.1)',
+        // Hardware acceleration for smooth performance
+        transform: 'translateZ(0)',
+        WebkitTransform: 'translateZ(0)',
+        willChange: 'transform',
+        backfaceVisibility: 'hidden',
+        WebkitBackfaceVisibility: 'hidden',
       }}
     >
       <BottomNavigation
@@ -81,35 +90,37 @@ const FooterNavbar = ({ cartCount = 0 }: FooterNavbarProps) => {
         onChange={handleNavigation}
         sx={{
           backgroundColor: 'transparent',
-          borderRadius: '20px 20px 0 0',
-          height: 80,
-          paddingTop: 1,
-          paddingBottom: 1,
-          // เอาเงาสีเหลืองออกหมด
+          borderRadius: 0,
+          height: 68,
+          paddingTop: 0.5,
+          paddingBottom: 0.5,
+          // Native mobile app style
           boxShadow: 'none !important',
           border: 'none',
           '& .MuiBottomNavigationAction-root': {
             minWidth: 'auto',
-            padding: '12px 4px',
+            padding: '6px 8px',
             margin: '0',
-            transition: 'all 0.25s ease',
-            color: '#1A1A1A',
+            transition: 'all 0.2s ease',
+            color: '#8E8E93',
             backgroundColor: 'transparent !important',
             boxShadow: 'none !important',
             display: 'flex',
             flexDirection: 'column',
+            borderRadius: 0,
             '&.Mui-selected': {
               color: '#F8A66E',
               backgroundColor: 'transparent !important',
               boxShadow: 'none !important',
               '& .MuiBottomNavigationAction-label': {
-                fontSize: '0.8rem',
-                fontWeight: 600,
+                fontSize: '0.65rem',
+                fontWeight: 500,
                 fontFamily: 'Prompt, sans-serif',
-                marginTop: 1,
+                marginTop: 0.5,
                 color: '#F8A66E',
                 display: 'block !important',
                 opacity: '1 !important',
+                letterSpacing: '-0.01em',
               },
             },
             '&:hover:not(.Mui-selected)': {
@@ -124,59 +135,36 @@ const FooterNavbar = ({ cartCount = 0 }: FooterNavbarProps) => {
               boxShadow: 'none !important',
             },
             '& .MuiBottomNavigationAction-label': {
-              fontSize: '0.8rem',
-              fontWeight: 500,
+              fontSize: '0.65rem',
+              fontWeight: 400,
               fontFamily: 'Prompt, sans-serif',
-              marginTop: 1,
-              transition: 'all 0.25s ease',
-              color: '#1A1A1A',
+              marginTop: 0.5,
+              transition: 'all 0.2s ease',
+              color: '#8E8E93',
               display: 'block !important',
               opacity: '1 !important',
               visibility: 'visible !important',
+              letterSpacing: '-0.01em',
             },
           },
         }}
       >
         <BottomNavigationAction
           label="หน้าแรก"
-          icon={<Home sx={{ fontSize: 22 }} />}
+          icon={<Home sx={{ fontSize: 24 }} />}
         />
         
         <BottomNavigationAction
-          label="ค้นหา"
-          icon={<Search sx={{ fontSize: 22 }} />}
-        />
-    
-        
+          label="ประวัติการสั่งซื้อ"
+          icon={<History sx={{ fontSize: 24 }} />}
+        />    
         <BottomNavigationAction
-          label="ตะกร้า"
-          icon={
-            cartCount > 0 ? (
-              <Badge 
-                badgeContent={cartCount} 
-                color="secondary"
-                sx={{
-                  '& .MuiBadge-badge': {
-                    backgroundColor: '#F35C76',
-                    color: 'white',
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    minWidth: 16,
-                    height: 16,
-                  },
-                }}
-              >
-                <ShoppingCartOutlined sx={{ fontSize: 22 }} />
-              </Badge>
-            ) : (
-              <ShoppingCartOutlined sx={{ fontSize: 22 }} />
-            )
-          }
+          label="การตั้งค่า"
+          icon={<MoreVert sx={{ fontSize: 24 }} />}
         />
-        
         <BottomNavigationAction
           label="โปรไฟล์"
-          icon={<Person sx={{ fontSize: 22 }} />}
+          icon={<Person sx={{ fontSize: 24 }} />}
         />
       </BottomNavigation>
     </Box>
