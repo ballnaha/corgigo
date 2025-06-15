@@ -126,6 +126,15 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
             WebkitUserSelect: 'none',
             WebkitTouchCallout: 'none',
             WebkitUserDrag: 'none',
+            '@media (max-width: 600px)': {
+              width: 36,
+              height: 36,
+            },
+            transition: 'opacity 0.2s ease',
+            willChange: 'auto',
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+            imageRendering: file.url?.startsWith('data:') ? 'auto' : 'auto',
           }}
           onError={(e) => {
             const target = e.target as HTMLImageElement;
@@ -150,6 +159,15 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
               `;
             }
           }}
+          onLoad={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.style.opacity = '1';
+            target.style.transform = 'translateZ(0)';
+            
+            if (file.url?.startsWith('data:')) {
+              target.style.imageRendering = 'auto';
+            }
+          }}
         />
       );
     }
@@ -172,6 +190,11 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
             color: 'white',
             fontSize: '8px',
             fontWeight: 'bold',
+            '@media (max-width: 600px)': {
+              width: 36,
+              height: 36,
+              fontSize: '7px',
+            },
           }}
         >
           DOC
@@ -193,6 +216,11 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
             color: 'white',
             fontSize: '8px',
             fontWeight: 'bold',
+            '@media (max-width: 600px)': {
+              width: 36,
+              height: 36,
+              fontSize: '7px',
+            },
           }}
         >
           XLS
@@ -305,10 +333,22 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     minHeight: 56,
+                    '@media (max-width: 600px)': {
+                      py: 0.75,
+                      px: 1,
+                      minHeight: 48,
+                    },
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                    <ListItemIcon sx={{ minWidth: 48, mr: 1 }}>
+                    <ListItemIcon sx={{ 
+                      minWidth: 48, 
+                      mr: 1,
+                      '@media (max-width: 600px)': {
+                        minWidth: 40,
+                        mr: 0.75,
+                      },
+                    }}>
                       {getFileIcon(file)}
                     </ListItemIcon>
                     <ListItemText
@@ -323,6 +363,9 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
+                            '@media (max-width: 600px)': {
+                              fontSize: '0.8rem',
+                            },
                           }}
                         >
                           {file.name}
@@ -336,6 +379,9 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
                               fontFamily: 'Prompt, sans-serif',
                               color: '#999',
                               fontSize: '0.75rem',
+                              '@media (max-width: 600px)': {
+                                fontSize: '0.7rem',
+                              },
                             }}
                           >
                             {formatFileSize(file.size)}
@@ -350,6 +396,10 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
                                 bgcolor: alpha('#4CAF50', 0.1),
                                 color: '#4CAF50',
                                 fontFamily: 'Prompt, sans-serif',
+                                '@media (max-width: 600px)': {
+                                  height: 14,
+                                  fontSize: '0.6rem',
+                                },
                               }}
                             />
                           )}
@@ -363,6 +413,10 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
                                 bgcolor: alpha('#F35C76', 0.1),
                                 color: '#F35C76',
                                 fontFamily: 'Prompt, sans-serif',
+                                '@media (max-width: 600px)': {
+                                  height: 14,
+                                  fontSize: '0.6rem',
+                                },
                               }}
                             />
                           )}

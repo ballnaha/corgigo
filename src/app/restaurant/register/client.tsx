@@ -196,13 +196,17 @@ export default function RegisterRestaurantClient() {
   
   const [location, setLocation] = useState<{lat: number; lng: number} | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [deletedFileIds, setDeletedFileIds] = useState<string[]>([]);
 
   // โหลดข้อมูลเดิมถ้าเป็นการแก้ไข
   useEffect(() => {
-    if (isEdit && session?.user) {
+    if (isEdit && session?.user && !justUpdated) {
+      console.log('🔄 Loading existing data from useEffect...');
+      // ล้างรายการไฟล์ที่ลบแล้วเมื่อโหลดหน้าใหม่
+      setDeletedFileIds([]);
       loadExistingData();
     }
-  }, [isEdit, session]);
+  }, [isEdit, session, justUpdated]);
 
   // ป้องกันการกระพริบเมื่อ keyboard ขึ้นมาใน mobile
   useEffect(() => {
@@ -268,12 +272,12 @@ export default function RegisterRestaurantClient() {
     };
   }, []);
 
-  // Cleanup object URLs เมื่อ component unmount
+  // Cleanup object URLs เมื่อ component unmount หรือ files เปลี่ยน
   useEffect(() => {
     return () => {
-      // ล้าง object URLs ทั้งหมดเมื่อ component unmount
+      // Cleanup object URLs เมื่อ component unmount
       uploadedFiles.forEach(file => {
-        if (file.url && !file.url.startsWith('/uploads') && file.file) {
+        if (file.url && !file.url.startsWith('/uploads') && !file.url.startsWith('data:')) {
           try {
             URL.revokeObjectURL(file.url);
           } catch (error) {
@@ -282,11 +286,52 @@ export default function RegisterRestaurantClient() {
         }
       });
     };
+  }, []); // ลบ uploadedFiles ออกจาก dependency array เพื่อป้องกันการ cleanup ที่ไม่จำเป็น
+
+  // เพิ่มการจัดการสำหรับมือถือ
+  useEffect(() => {
+    // ตรวจสอบว่าเป็นมือถือหรือไม่
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // เพิ่มการจัดการ memory สำหรับมือถือ
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          // เมื่อแอปถูกซ่อน ให้ cleanup URLs ชั่วคราว
+          console.log('App hidden, cleaning up temporary URLs');
+        } else {
+          // เมื่อแอปกลับมาแสดง ให้ตรวจสอบ URLs
+          console.log('App visible, checking URLs');
+        }
+      };
+
+      const handleBeforeUnload = () => {
+        // เมื่อปิดหน้าเว็บ ให้ cleanup URLs
+        uploadedFiles.forEach(file => {
+          if (file.url && !file.url.startsWith('/uploads') && !file.url.startsWith('data:')) {
+            try {
+              URL.revokeObjectURL(file.url);
+            } catch (error) {
+              console.error('Error revoking object URL:', error);
+            }
+          }
+        });
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      };
+    }
   }, [uploadedFiles]);
 
   const loadExistingData = async () => {
     try {
       setLoadingData(true);
+      console.log('📊 Starting to load existing data...');
       
       // โหลดข้อมูลร้านอาหาร
       const restaurantResponse = await fetch('/api/restaurant/register');
@@ -309,17 +354,36 @@ export default function RegisterRestaurantClient() {
             lng: restaurant.longitude,
           });
         }
+        console.log('✅ Restaurant data loaded successfully');
       } else {
         showSnackbar(restaurantResult.error || 'ไม่สามารถโหลดข้อมูลได้', 'error');
         return;
       }
 
-      // โหลดไฟล์เอกสาร
-      const filesResponse = await fetch('/api/restaurant/upload');
-      const filesResult = await filesResponse.json();
+      // โหลดไฟล์เอกสาร - เฉพาะถ้ายังไม่มีไฟล์ในหน่วยความจำ
+      if (uploadedFiles.length === 0) {
+        console.log('📁 Loading files since none exist...');
+        const filesResponse = await fetch('/api/restaurant/upload');
+        const filesResult = await filesResponse.json();
 
-      if (filesResponse.ok && filesResult.success) {
-        setUploadedFiles(filesResult.files || []);
+        if (filesResponse.ok && filesResult.success && filesResult.files) {
+          // ตรวจสอบและแก้ไข URL ของไฟล์ + กรองไฟล์ที่ลบแล้วออก
+          const validFiles = filesResult.files
+            .filter((file: any) => !deletedFileIds.includes(file.id))
+            .map((file: any) => ({
+              ...file,
+              // ใช้ URL ที่ได้จาก API โดยตรง
+              url: file.url
+            }));
+          
+          console.log('📁 Loaded existing files:', validFiles.length, 'filtered out:', deletedFileIds.length);
+          setUploadedFiles(validFiles);
+        } else {
+          console.log('📁 No existing files found');
+          setUploadedFiles([]);
+        }
+      } else {
+        console.log('📁 Files already exist, skipping reload');
       }
 
     } catch (error) {
@@ -393,18 +457,50 @@ export default function RegisterRestaurantClient() {
 
     // เพิ่มไฟล์เข้า state สำหรับแสดงผล (ไม่อัพโหลดทันที)
     const newUploadedFiles: UploadedFile[] = validFiles.map((file, i) => {
+      const fileId = Date.now().toString() + i;
+      
       // สร้าง object URL สำหรับ preview
       let previewUrl = '';
-      try {
-        previewUrl = URL.createObjectURL(file);
-      } catch (error) {
-        console.error('Error creating object URL:', error);
-        // ถ้าสร้าง URL ไม่ได้ ให้ใช้ placeholder
-        previewUrl = '';
+      
+      // ตรวจสอบว่าเป็นมือถือหรือไม่
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      console.log(`📱 Device check: isMobile=${isMobile}, file=${file.name}, type=${file.type}`);
+      
+      if (isMobile && file.type.startsWith('image/')) {
+        // ใช้ FileReader สำหรับมือถือ
+        console.log(`📱 Using FileReader for mobile image: ${file.name}`);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target?.result as string;
+          if (result) {
+            console.log(`✅ FileReader success for ${file.name}`);
+            setUploadedFiles(prev => prev.map(f => 
+              f.id === fileId ? { ...f, url: result } : f
+            ));
+          }
+        };
+        reader.onerror = (e) => {
+          console.error(`❌ FileReader error for ${file.name}:`, e);
+        };
+        reader.readAsDataURL(file);
+        
+        // ใช้ placeholder URL ชั่วคราว
+        previewUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjhBNjZFIiBmaWxsLW9wYWNpdHk9IjAuMSIgcng9IjQiLz4KPHN2ZyB4PSIxMCIgeT0iMTAiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjRjhBNjZFIiBmaWxsLW9wYWNpdHk9IjAuNyI+CjxwYXRoIGQ9Ik0yMSAxOVY1YzAtMS4xLS45LTItMi0ySDVjLTEuMSAwLTIgLjktMiAydjE0YzAgMS4xLjkgMiAyIDJoMTRjMS4xIDAgMi0uOSAyLTJ6TTguNSAxMy41bDIuNSAzLjAxTDE0LjUgMTJsNC41IDZINWwzLjUtNC41eiIvPgo8L3N2Zz4KPC9zdmc+';
+      } else {
+        try {
+          // ใช้ URL.createObjectURL สำหรับ desktop หรือไฟล์ที่ไม่ใช่รูปภาพ
+          previewUrl = URL.createObjectURL(file);
+          console.log(`💻 Created object URL for ${file.name}: ${previewUrl.substring(0, 50)}...`);
+        } catch (error) {
+          console.error(`❌ Error creating object URL for ${file.name}:`, error);
+          // ถ้าสร้าง URL ไม่ได้ ให้ใช้ placeholder
+          previewUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjhBNjZFIiBmaWxsLW9wYWNpdHk9IjAuMSIgcng9IjQiLz4KPHN2ZyB4PSIxMCIgeT0iMTAiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjRjhBNjZFIiBmaWxsLW9wYWNpdHk9IjAuNyI+CjxwYXRoIGQ9Ik0yMSAxOVY1YzAtMS4xLS45LTItMi0ySDVjLTEuMSAwLTIgLjktMiAydjE0YzAgMS4xLjkgMiAyIDJoMTRjMS4xIDAgMi0uOSAyLTJ6TTguNSAxMy41bDIuNSAzLjAxTDE0LjUgMTJsNC41IDZINWwzLjUtNC41eiIvPgo8L3N2Zz4KPC9zdmc+';
+        }
       }
       
       return {
-        id: Date.now().toString() + i,
+        id: fileId,
         name: file.name,
         size: file.size,
         type: file.type,
@@ -413,10 +509,20 @@ export default function RegisterRestaurantClient() {
       };
     });
 
-    setUploadedFiles(prev => [...prev, ...newUploadedFiles]);
-    
-    // เก็บไฟล์ไว้สำหรับอัพโหลดตอนบันทึก (ทั้งโหมดใหม่และแก้ไข)
-    setSelectedFiles(prev => [...prev, ...validFiles]);
+    // อัปเดต state ทั้งสองพร้อมกัน
+    setUploadedFiles(prev => {
+      // เก็บไฟล์เก่าที่อัปโหลดแล้ว (มี URL ที่ขึ้นต้นด้วย /uploads)
+      const existingFiles = prev.filter(file => file.url?.startsWith('/uploads'));
+      // รวมกับไฟล์ใหม่
+      const combined = [...existingFiles, ...newUploadedFiles];
+      console.log(`📁 Updated files list: existing=${existingFiles.length}, new=${newUploadedFiles.length}, total=${combined.length}`);
+      return combined;
+    });
+    setSelectedFiles(prev => {
+      const updated = [...prev, ...validFiles];
+      console.log(`📄 Updated selected files: ${updated.length} files`);
+      return updated;
+    });
 
     // แสดงข้อความสำเร็จ
     showSnackbar(`เพิ่มไฟล์ ${validFiles.length} ไฟล์แล้ว`, 'success');
@@ -425,6 +531,8 @@ export default function RegisterRestaurantClient() {
   const handleRemoveFile = async (fileId: string) => {
     const fileToRemove = uploadedFiles.find(f => f.id === fileId);
     if (!fileToRemove) return;
+
+    console.log(`🗑️ Removing file: ${fileToRemove.name} (${fileId})`);
 
     // ถ้าเป็นไฟล์ที่อัพโหลดแล้ว (มี URL ที่ขึ้นต้นด้วย /uploads) ให้ลบจากเซิร์ฟเวอร์
     if (isEdit && fileToRemove.url?.startsWith('/uploads')) {
@@ -439,25 +547,36 @@ export default function RegisterRestaurantClient() {
           showSnackbar('ไม่สามารถลบไฟล์ได้', 'error');
           return; // ไม่ลบจาก state ถ้าลบจากเซิร์ฟเวอร์ไม่สำเร็จ
         }
+        
+        console.log(`✅ File deleted from server: ${fileId}`);
+        // เพิ่มไฟล์ที่ลบแล้วเข้า list
+        setDeletedFileIds(prev => [...prev, fileId]);
       } catch (error) {
         console.error('Error deleting file:', error);
         showSnackbar('เกิดข้อผิดพลาดในการลบไฟล์', 'error');
         return;
       }
     } else {
-      // ถ้าเป็นไฟล์ที่ยังไม่ได้อัพโหลด ให้ revoke URL และลบจาก selectedFiles
-      if (fileToRemove.url && !fileToRemove.url.startsWith('/uploads')) {
-        URL.revokeObjectURL(fileToRemove.url);
+      // ถ้าเป็นไฟล์ที่ยังไม่ได้อัปโหลด ให้ revoke URL และลบจาก selectedFiles
+      if (fileToRemove.url && !fileToRemove.url.startsWith('/uploads') && !fileToRemove.url.startsWith('data:')) {
+        try {
+          URL.revokeObjectURL(fileToRemove.url);
+          console.log(`🗑️ Revoked object URL for: ${fileToRemove.name}`);
+        } catch (error) {
+          console.error('Error revoking object URL:', error);
+        }
       }
       
       // ลบจาก selectedFiles ด้วย
       if (fileToRemove.file) {
         setSelectedFiles(prev => prev.filter(f => f !== fileToRemove.file));
+        console.log(`🗑️ Removed from selectedFiles: ${fileToRemove.name}`);
       }
     }
 
     // ลบจาก state
     setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
+    console.log(`🗑️ Removed from uploadedFiles: ${fileToRemove.name}`);
   };
 
   const formatFileSize = (bytes: number) => {
@@ -667,12 +786,9 @@ export default function RegisterRestaurantClient() {
       const result = await response.json();
 
       if (response.ok) {
-        // รีเซ็ต selectedFiles หลังจากบันทึกสำเร็จ
-        setSelectedFiles([]);
-        
         // ถ้าเป็นการแก้ไข ให้อัพเดทข้อมูลทันทีจาก response
         if (isEdit && result.restaurant) {
-          // อัพเดท formData ด้วยข้อมูลใหม่จาก response
+          // อัปเดต formData ด้วยข้อมูลใหม่จาก response
           setFormData({
             name: result.restaurant.name || '',
             description: result.restaurant.description || '',
@@ -682,7 +798,7 @@ export default function RegisterRestaurantClient() {
             closeTime: result.restaurant.closeTime || '21:00',
           });
           
-          // อัพเดท location ถ้ามี
+          // อัปเดต location ถ้ามี
           if (result.restaurant.latitude && result.restaurant.longitude) {
             setLocation({
               lat: result.restaurant.latitude,
@@ -690,17 +806,58 @@ export default function RegisterRestaurantClient() {
             });
           }
           
-          // อัพเดทรายการไฟล์ทั้งหมดจาก response
-          if (result.files) {
-            // ล้าง URL.createObjectURL ของไฟล์เก่าที่ยังไม่ได้อัปโหลด
+          // จัดการไฟล์หลังจาก submit สำเร็จ
+          console.log('🔄 Managing files after submit success...');
+          console.log('📊 Current state:', {
+            uploadedFilesCount: uploadedFiles.length,
+            selectedFilesCount: selectedFiles.length,
+            hasResponseFiles: !!result.files,
+            responseFilesCount: result.files?.length || 0
+          });
+          
+          // ถ้ามีไฟล์ใหม่ที่อัปโหลด
+          if (selectedFiles.length > 0) {
+            console.log('📁 Processing newly uploaded files...');
+            
+            // ล้าง URL.createObjectURL ของไฟล์ที่ยังไม่ได้อัปโหลด
             uploadedFiles.forEach(file => {
-              if (file.url && !file.url.startsWith('/uploads') && file.file) {
-                URL.revokeObjectURL(file.url);
+              if (file.url && !file.url.startsWith('/uploads') && !file.url.startsWith('data:')) {
+                try {
+                  URL.revokeObjectURL(file.url);
+                  console.log(`🗑️ Revoked URL for ${file.name}`);
+                } catch (error) {
+                  console.error('Error revoking object URL:', error);
+                }
               }
             });
             
-            setUploadedFiles(result.files);
+            // โหลดไฟล์ใหม่จาก API แทนการใช้ response
+            console.log('🔄 Reloading all files from API...');
+            try {
+              const filesResponse = await fetch('/api/restaurant/upload');
+              const filesResult = await filesResponse.json();
+              
+              if (filesResponse.ok && filesResult.success && filesResult.files) {
+                // กรองไฟล์ที่ลบแล้วออก
+                const filteredFiles = filesResult.files.filter((file: any) => !deletedFileIds.includes(file.id));
+                setUploadedFiles(filteredFiles);
+                console.log('✅ All files reloaded successfully:', filteredFiles.length, 'total from API:', filesResult.files.length, 'deleted:', deletedFileIds.length);
+              } else {
+                console.log('⚠️ Failed to reload files, keeping current files');
+                // ไม่อัปเดตอะไร ให้ไฟล์เดิมอยู่
+              }
+            } catch (error) {
+              console.error('Error reloading files:', error);
+              // ไม่อัปเดตอะไร ให้ไฟล์เดิมอยู่
+            }
+          } else {
+            console.log('ℹ️ No new files uploaded, keeping current files unchanged');
+            // ไม่มีไฟล์ใหม่ ไม่ต้องทำอะไร
           }
+          
+          // ล้าง selectedFiles ในทุกกรณี
+          setSelectedFiles([]);
+          console.log('🧹 Cleared selected files');
           
           // แสดงสถานะที่เพิ่งอัพเดท
           setJustUpdated(true);
@@ -722,12 +879,22 @@ export default function RegisterRestaurantClient() {
             
             console.log('✅ Scroll commands executed');
             showSnackbar('บันทึกสำเร็จ', 'success');
+            
+            // ตรวจสอบไฟล์หลังจาก submit สำเร็จ
+            setTimeout(() => {
+              console.log('🔍 Checking files after submit:', uploadedFiles.length, 'deleted files:', deletedFileIds.length);
+              if (uploadedFiles.length === 0 && deletedFileIds.length === 0) {
+                console.log('⚠️ Files missing after submit, reloading...');
+                loadExistingData();
+              }
+            }, 1000);
           }, 200); // เพิ่มเวลาให้มากขึ้น
           
-          // ซ่อนสถานะอัพเดทหลังจาก 3 วินาที
+          // ซ่อนสถานะอัพเดทหลังจาก 5 วินาที (เพิ่มเวลาเพื่อป้องกันการรีโหลด)
           setTimeout(() => {
+            console.log('🔄 Clearing justUpdated flag');
             setJustUpdated(false);
-          }, 3000);
+          }, 5000);
         } else {
           // สำหรับการสมัครใหม่ ให้แสดงข้อความและ refresh session
           showSnackbar('สมัครสำเร็จ', 'success');
