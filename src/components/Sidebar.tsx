@@ -3,6 +3,8 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { isLineUser } from '@/utils/userUtils';
+import { colors } from '@/config/colors';
 import {
   Drawer,
   List,
@@ -36,6 +38,9 @@ interface SidebarProps {
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  
+  // ตรวจสอบว่าเป็น LINE user หรือไม่
+  const isUserFromLine = isLineUser(session?.user?.email);
   const menuItems = [
     { text: 'หน้าแรก', icon: <Home />, path: '/' },
     { text: 'ร้านอาหาร', icon: <Restaurant />, path: '/restaurants' },
@@ -60,18 +65,18 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       sx={{
         '& .MuiDrawer-paper': {
           width: 280,
-          bgcolor: '#FFFFFF',
+          bgcolor: colors.neutral.white,
           borderTopRightRadius: 20,
           borderBottomRightRadius: 20,
-          color: '#1A1A1A',
+          color: colors.neutral.darkGray,
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
         },
       }}
     >
       <Box sx={{ 
         p: 3, 
-        bgcolor: '#FAFAFA',
-        borderBottom: '1px solid #F0F0F0',
+        bgcolor: colors.neutral.lightGray,
+        borderBottom: `1px solid ${colors.neutral.lightGray}`,
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Avatar 
@@ -79,12 +84,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             sx={{ 
               width: 50, 
               height: 50,
-              bgcolor: '#F8A66E',
-              color: 'white',
+              bgcolor: colors.primary.golden,
+              color: colors.neutral.white,
               fontFamily: 'Prompt, sans-serif',
               fontWeight: 600,
-              border: '2px solid #FFFFFF',
-              boxShadow: '0 2px 8px rgba(248, 166, 110, 0.3)',
+              border: `2px solid ${colors.neutral.white}`,
+              boxShadow: `0 2px 8px ${colors.primary.golden}30`,
             }}
           >
             {session?.user?.name?.charAt(0)?.toUpperCase() || 'U'}
@@ -94,7 +99,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               variant="h6" 
               sx={{ 
                 fontWeight: 600,
-                color: '#1A1A1A',
+                color: colors.neutral.darkGray,
                 fontFamily: 'Prompt, sans-serif',
                 fontSize: '1rem',
               }}
@@ -104,12 +109,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             <Typography 
               variant="body2" 
               sx={{ 
-                color: '#666',
+                color: colors.neutral.gray,
                 fontFamily: 'Prompt, sans-serif',
                 fontSize: '0.85rem',
               }}
             >
-              {session?.user?.email || 'ผู้ใช้ CorgiGo'}
+              {isUserFromLine ? 'ผู้ใช้ LINE' : (session?.user?.email || 'ผู้ใช้ CorgiGo')}
             </Typography>
           </Box>
         </Box>
@@ -129,14 +134,14 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 my: 0.5,
                 transition: 'all 0.2s ease',
                 '&:hover': {
-                  bgcolor: '#F8A66E15',
+                  bgcolor: `${colors.secondary.fresh}15`,
                   transform: 'translateX(4px)',
-                  boxShadow: '0 2px 8px rgba(248, 166, 110, 0.2)',
+                  boxShadow: `0 2px 8px ${colors.secondary.fresh}20`,
                 },
               }}
             >
               <ListItemIcon sx={{ 
-                color: '#F8A66E', 
+                color: colors.secondary.fresh, 
                 minWidth: 40,
                 transition: 'all 0.2s ease',
               }}>
@@ -147,7 +152,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 primaryTypographyProps={{
                   fontWeight: 500,
                   fontSize: '0.95rem',
-                  color: '#1A1A1A',
+                  color: colors.neutral.darkGray,
                   fontFamily: 'Prompt, sans-serif',
                 }}
               />
@@ -156,7 +161,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         ))}
       </List>
 
-      <Divider sx={{ borderColor: '#F0F0F0' }} />
+      <Divider sx={{ borderColor: colors.neutral.lightGray }} />
 
       <List sx={{ px: 1, py: 1 }}>
         {bottomItems.map((item) => (
@@ -172,14 +177,14 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 my: 0.5,
                 transition: 'all 0.2s ease',
                 '&:hover': {
-                  bgcolor: '#F35C7615',
+                  bgcolor: `${colors.accent.warm}15`,
                   transform: 'translateX(4px)',
-                  boxShadow: '0 2px 8px rgba(243, 92, 118, 0.2)',
+                  boxShadow: `0 2px 8px ${colors.accent.warm}20`,
                 },
               }}
             >
               <ListItemIcon sx={{ 
-                color: '#F35C76', 
+                color: colors.accent.warm, 
                 minWidth: 40,
                 transition: 'all 0.2s ease',
               }}>

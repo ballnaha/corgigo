@@ -28,6 +28,8 @@ import {
   TextField,
 } from '@mui/material';
 import { useSnackbar } from '@/contexts/SnackbarContext';
+import { colors } from '@/config/colors';
+import NoSSR from '@/components/NoSSR';
 import {
   Dashboard,
   AccountCircle,
@@ -93,6 +95,9 @@ export default function AdminPage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [previewFileOpen, setPreviewFileOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<RestaurantDocument | null>(null);
 
   // Mock data
   const stats = {
@@ -143,6 +148,11 @@ export default function AdminPage() {
     };
 
     loadPendingRestaurants();
+  }, []);
+
+  // ป้องกัน hydration mismatch
+  useEffect(() => {
+    setMounted(true);
   }, []);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -221,7 +231,7 @@ export default function AdminPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): 'success' | 'error' | 'warning' | 'default' => {
     switch (status) {
       case 'เปิด':
       case 'ออนไลน์':
@@ -240,457 +250,923 @@ export default function AdminPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('th-TH', {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('th-TH', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'Asia/Bangkok',
     });
   };
 
-  return (
-    <>
-      {/* Header */}
-      <AppBar position="fixed" sx={{ bgcolor: 'primary.main' }}>
-        <Toolbar>
-          <Dashboard sx={{ mr: 2 }} />
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
-            CorgiGo Admin
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getFileIcon = (fileType: string) => {
+    if (fileType.startsWith('image/')) {
+      return '🖼️';
+    } else if (fileType === 'application/pdf') {
+      return '📄';
+    } else if (fileType.includes('word') || fileType.includes('document')) {
+      return '📝';
+    } else if (fileType.includes('sheet') || fileType.includes('excel')) {
+      return '📊';
+    } else {
+      return '📎';
+    }
+  };
+
+  const getFileTypeColor = (fileType: string) => {
+    if (fileType.startsWith('image/')) {
+      return colors.secondary.fresh;
+    } else if (fileType === 'application/pdf') {
+      return colors.accent.warm;
+    } else if (fileType.includes('word') || fileType.includes('document')) {
+      return colors.primary.golden;
+    } else if (fileType.includes('sheet') || fileType.includes('excel')) {
+      return colors.secondary.darkFresh;
+    } else {
+      return colors.neutral.gray;
+    }
+  };
+
+  const handleDownloadFile = (doc: RestaurantDocument) => {
+    const link = document.createElement('a');
+    link.href = doc.url;
+    link.download = doc.name;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handlePreviewFile = (doc: RestaurantDocument) => {
+    setSelectedFile(doc);
+    setPreviewFileOpen(true);
+  };
+
+  const handleClosePreview = () => {
+    setPreviewFileOpen(false);
+    setSelectedFile(null);
+  };
+
+  const renderFilePreview = (doc: RestaurantDocument) => {
+    if (doc.type.startsWith('image/')) {
+      return (
+        <Box
+          sx={{
+            width: 120,
+            height: 80,
+            borderRadius: 2,
+            overflow: 'hidden',
+            border: `2px solid ${colors.neutral.lightGray}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: colors.neutral.lightGray,
+          }}
+        >
+          <Box
+            component="img"
+            src={doc.url}
+            alt={doc.name}
+            sx={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+            onError={(e) => {
+              // ถ้าโหลดรูปไม่ได้ให้แสดง placeholder
+              const target = e.target as HTMLImageElement;
+              const nextElement = target.nextElementSibling as HTMLElement;
+              target.style.display = 'none';
+              if (nextElement) {
+                nextElement.style.display = 'flex';
+              }
+            }}
+          />
+          <Box
+            sx={{
+              display: 'none',
+              width: '100%',
+              height: '100%',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: colors.neutral.gray,
+              fontSize: '2rem',
+            }}
+          >
+            🖼️
+          </Box>
+        </Box>
+      );
+    } else {
+      return (
+        <Box
+          sx={{
+            width: 120,
+            height: 80,
+            borderRadius: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: `${getFileTypeColor(doc.type)}15`,
+            border: `2px solid ${getFileTypeColor(doc.type)}30`,
+          }}
+        >
+          <Typography sx={{ fontSize: '2rem', mb: 1 }}>
+            {getFileIcon(doc.type)}
           </Typography>
-          <IconButton color="inherit">
-            <AccountCircle />
-          </IconButton>
-        </Toolbar>
-      </AppBar>
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              color: getFileTypeColor(doc.type),
+              fontWeight: 600,
+              textTransform: 'uppercase',
+            }}
+          >
+            {doc.type.includes('pdf') ? 'PDF' : 
+             doc.type.includes('word') ? 'DOC' :
+             doc.type.includes('sheet') ? 'XLS' : 'FILE'}
+          </Typography>
+        </Box>
+      );
+    }
+  };
 
-      <Box sx={{ pt: 8, pb: 4 }}>
-        <Container maxWidth="lg" sx={{ mt: 2 }}>
-          {/* Welcome Card */}
-          <Card sx={{ mb: 3, bgcolor: 'primary.50' }}>
-            <CardContent>
-              <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>
-                ยินดีต้อนรับสู่ระบบจัดการ CorgiGo
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                จัดการผู้ใช้งาน ร้านอาหาร และไรเดอร์ของคุณได้ที่นี่
-              </Typography>
-            </CardContent>
-          </Card>
+  if (!mounted) {
+    return null; // ป้องกัน hydration mismatch
+  }
 
-          {/* Statistics Cards */}
-          <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-            <Paper sx={{ p: 2, minWidth: 200, textAlign: 'center' }}>
-              <People sx={{ color: 'primary.main', fontSize: 40, mb: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                {stats.totalUsers.toLocaleString()}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                ผู้ใช้ทั้งหมด
-              </Typography>
-            </Paper>
-            <Paper sx={{ p: 2, minWidth: 200, textAlign: 'center' }}>
-              <Restaurant sx={{ color: 'success.main', fontSize: 40, mb: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                {stats.totalRestaurants.toLocaleString()}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                ร้านอาหาร
-              </Typography>
-            </Paper>
-            <Paper sx={{ p: 2, minWidth: 200, textAlign: 'center' }}>
-              <TwoWheeler sx={{ color: 'warning.main', fontSize: 40, mb: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                {stats.totalRiders.toLocaleString()}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                ไรเดอร์
-              </Typography>
-            </Paper>
-            <Paper sx={{ p: 2, minWidth: 200, textAlign: 'center' }}>
-              <BarChart sx={{ color: 'info.main', fontSize: 40, mb: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                {stats.totalOrders.toLocaleString()}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                คำสั่งซื้อทั้งหมด
-              </Typography>
-            </Paper>
-            <Paper sx={{ p: 2, minWidth: 200, textAlign: 'center', bgcolor: 'warning.50' }}>
-              <Restaurant sx={{ color: 'warning.main', fontSize: 40, mb: 1 }} />
-              <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'warning.main' }}>
-                {stats.pendingRestaurants}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                รอการอนุมัติ
-              </Typography>
-            </Paper>
-          </Box>
+  return (
+    <NoSSR>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        minHeight: '100vh',
+        bgcolor: colors.neutral.lightGray,
+      }}>
+        {/* Header */}
+        <AppBar 
+          position="static" 
+          sx={{ 
+            bgcolor: colors.neutral.white,
+            boxShadow: `0 2px 8px ${colors.neutral.gray}20`,
+            borderBottom: `1px solid ${colors.neutral.lightGray}`,
+          }}
+        >
+          <Toolbar>
+            <Dashboard sx={{ mr: 2, color: colors.primary.golden }} />
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                flexGrow: 1,
+                fontFamily: '"Prompt", sans-serif',
+                fontWeight: 600,
+                color: colors.neutral.darkGray,
+              }}
+            >
+              ผู้ดูแลระบบ CorgiGo
+            </Typography>
+            <IconButton sx={{ color: colors.neutral.gray }}>
+              <Settings />
+            </IconButton>
+            <IconButton sx={{ color: colors.neutral.gray }}>
+              <AccountCircle />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
 
+        {/* Main Content */}
+        <Container maxWidth="xl" sx={{ flex: 1, py: 3 }}>
           {/* Tabs */}
-          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-            <Tabs value={tabValue} onChange={handleTabChange}>
-              <Tab label="คำสั่งซื้อล่าสุด" />
-              <Tab label="ร้านอาหาร" />
-              <Tab label="ไรเดอร์" />
-              <Tab label="รอการอนุมัติ" />
+          <Paper 
+            sx={{ 
+              mb: 3,
+              bgcolor: colors.neutral.white,
+              borderRadius: 3,
+              overflow: 'hidden',
+              boxShadow: `0 4px 12px ${colors.neutral.gray}10`,
+            }}
+          >
+            <Tabs 
+              value={tabValue} 
+              onChange={handleTabChange}
+              sx={{
+                borderBottom: `1px solid ${colors.neutral.lightGray}`,
+                '& .MuiTab-root': {
+                  fontFamily: '"Prompt", sans-serif',
+                  fontWeight: 500,
+                  textTransform: 'none',
+                  fontSize: '1rem',
+                  color: colors.neutral.gray,
+                  '&.Mui-selected': {
+                    color: colors.primary.golden,
+                    fontWeight: 600,
+                  },
+                },
+                '& .MuiTabs-indicator': {
+                  backgroundColor: colors.primary.golden,
+                  height: 3,
+                },
+              }}
+            >
+              <Tab icon={<Dashboard />} label="แดชบอร์ด" />
+              <Tab icon={<People />} label="ผู้ใช้งาน" />
+              <Tab icon={<Restaurant />} label="ร้านอาหาร" />
+              <Tab icon={<TwoWheeler />} label="ไรเดอร์" />
+              <Tab icon={<BarChart />} label="ร้านรอการอนุมัติ" />
             </Tabs>
-          </Box>
 
-          {/* Tab Content */}
-          <TabPanel value={tabValue} index={0}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-              คำสั่งซื้อล่าสุด
-            </Typography>
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>ลูกค้า</TableCell>
-                    <TableCell>ร้านอาหาร</TableCell>
-                    <TableCell>สถานะ</TableCell>
-                    <TableCell>ยอดรวม</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {recentOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell>{order.customer}</TableCell>
-                      <TableCell>{order.restaurant}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={order.status}
-                          color={getStatusColor(order.status) as any}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>฿{order.total}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </TabPanel>
-
-          <TabPanel value={tabValue} index={1}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-              ร้านอาหารทั้งหมด
-            </Typography>
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>ชื่อร้าน</TableCell>
-                    <TableCell>เจ้าของ</TableCell>
-                    <TableCell>สถานะ</TableCell>
-                    <TableCell>ออเดอร์</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {restaurants.map((restaurant) => (
-                    <TableRow key={restaurant.id}>
-                      <TableCell>{restaurant.name}</TableCell>
-                      <TableCell>{restaurant.owner}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={restaurant.status}
-                          color={getStatusColor(restaurant.status) as any}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>{restaurant.orders}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </TabPanel>
-
-          <TabPanel value={tabValue} index={2}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-              ไรเดอร์ทั้งหมด
-            </Typography>
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>ชื่อ</TableCell>
-                    <TableCell>เบอร์โทร</TableCell>
-                    <TableCell>สถานะ</TableCell>
-                    <TableCell>การส่ง</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {riders.map((rider) => (
-                    <TableRow key={rider.id}>
-                      <TableCell>{rider.name}</TableCell>
-                      <TableCell>{rider.phone}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={rider.status}
-                          color={getStatusColor(rider.status) as any}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>{rider.deliveries}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </TabPanel>
-
-          <TabPanel value={tabValue} index={3}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-              ร้านอาหารรอการอนุมัติ ({pendingRestaurants.length})
-            </Typography>
-            {pendingRestaurants.length === 0 ? (
-              <Box sx={{ 
-                mt: 2, 
-                p: 2, 
-                bgcolor: '#e3f2fd', 
-                borderRadius: 2, 
-                border: '1px solid #bbdefb' 
-              }}>
-                <Typography color="primary">
-                  ไม่มีร้านอาหารที่รอการอนุมัติ
-                </Typography>
+            {/* Dashboard Tab */}
+            <TabPanel value={tabValue} index={0}>
+              <Typography 
+                variant="h5" 
+                gutterBottom 
+                sx={{ 
+                  fontWeight: 'bold',
+                  fontFamily: '"Prompt", sans-serif',
+                  color: colors.neutral.darkGray,
+                  mb: 3,
+                }}
+              >
+                สถิติภาพรวม
+              </Typography>
+              
+              {/* Stats Cards */}
+              <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' }, mb: 4 }}>
+                <Card sx={{ 
+                  bgcolor: `${colors.primary.golden}15`,
+                  border: `1px solid ${colors.primary.golden}30`,
+                  borderRadius: 3,
+                  boxShadow: `0 4px 12px ${colors.primary.golden}10`,
+                }}>
+                  <CardContent>
+                    <Typography variant="h4" sx={{ color: colors.primary.golden, fontWeight: 'bold' }}>
+                      {stats.totalUsers.toLocaleString()}
+                    </Typography>
+                    <Typography sx={{ color: colors.neutral.gray, fontFamily: '"Prompt", sans-serif' }}>
+                      ผู้ใช้งานทั้งหมด
+                    </Typography>
+                  </CardContent>
+                </Card>
+                
+                <Card sx={{ 
+                  bgcolor: `${colors.secondary.fresh}15`,
+                  border: `1px solid ${colors.secondary.fresh}30`,
+                  borderRadius: 3,
+                  boxShadow: `0 4px 12px ${colors.secondary.fresh}10`,
+                }}>
+                  <CardContent>
+                    <Typography variant="h4" sx={{ color: colors.secondary.fresh, fontWeight: 'bold' }}>
+                      {stats.totalRestaurants}
+                    </Typography>
+                    <Typography sx={{ color: colors.neutral.gray, fontFamily: '"Prompt", sans-serif' }}>
+                      ร้านอาหาร
+                    </Typography>
+                  </CardContent>
+                </Card>
+                
+                <Card sx={{ 
+                  bgcolor: `${colors.accent.warm}15`,
+                  border: `1px solid ${colors.accent.warm}30`,
+                  borderRadius: 3,
+                  boxShadow: `0 4px 12px ${colors.accent.warm}10`,
+                }}>
+                  <CardContent>
+                    <Typography variant="h4" sx={{ color: colors.accent.warm, fontWeight: 'bold' }}>
+                      {stats.totalRiders}
+                    </Typography>
+                    <Typography sx={{ color: colors.neutral.gray, fontFamily: '"Prompt", sans-serif' }}>
+                      ไรเดอร์
+                    </Typography>
+                  </CardContent>
+                </Card>
+                
+                <Card sx={{ 
+                  bgcolor: `${colors.secondary.darkFresh}15`,
+                  border: `1px solid ${colors.secondary.darkFresh}30`,
+                  borderRadius: 3,
+                  boxShadow: `0 4px 12px ${colors.secondary.darkFresh}10`,
+                }}>
+                  <CardContent>
+                    <Typography variant="h4" sx={{ color: colors.secondary.darkFresh, fontWeight: 'bold' }}>
+                      {stats.totalOrders.toLocaleString()}
+                    </Typography>
+                    <Typography sx={{ color: colors.neutral.gray, fontFamily: '"Prompt", sans-serif' }}>
+                      ออเดอร์ทั้งหมด
+                    </Typography>
+                  </CardContent>
+                </Card>
               </Box>
-            ) : (
-              <TableContainer component={Paper}>
+
+              {/* Recent Orders */}
+              <Typography 
+                variant="h6" 
+                gutterBottom 
+                sx={{ 
+                  fontWeight: 'bold',
+                  fontFamily: '"Prompt", sans-serif',
+                  color: colors.neutral.darkGray,
+                  mb: 2,
+                }}
+              >
+                ออเดอร์ล่าสุด
+              </Typography>
+              <TableContainer 
+                component={Paper} 
+                sx={{ 
+                  borderRadius: 3,
+                  boxShadow: `0 4px 12px ${colors.neutral.gray}10`,
+                }}
+              >
                 <Table>
                   <TableHead>
-                    <TableRow>
-                      <TableCell>ชื่อร้าน</TableCell>
-                      <TableCell>เจ้าของ</TableCell>
-                      <TableCell>เบอร์โทร</TableCell>
-                      <TableCell>วันที่สมัคร</TableCell>
-                      <TableCell>การดำเนินการ</TableCell>
+                    <TableRow sx={{ bgcolor: colors.neutral.lightGray }}>
+                      <TableCell sx={{ fontFamily: '"Prompt", sans-serif', fontWeight: 600 }}>ลูกค้า</TableCell>
+                      <TableCell sx={{ fontFamily: '"Prompt", sans-serif', fontWeight: 600 }}>ร้านอาหาร</TableCell>
+                      <TableCell sx={{ fontFamily: '"Prompt", sans-serif', fontWeight: 600 }}>สถานะ</TableCell>
+                      <TableCell sx={{ fontFamily: '"Prompt", sans-serif', fontWeight: 600 }}>ยอดเงิน</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {pendingRestaurants.map((restaurant) => (
-                      <TableRow key={restaurant.id}>
-                        <TableCell>{restaurant.name}</TableCell>
-                        <TableCell>{restaurant.owner}</TableCell>
-                        <TableCell>{restaurant.phone}</TableCell>
-                        <TableCell>{formatDate(restaurant.submittedAt)}</TableCell>
+                    {recentOrders.map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell sx={{ fontFamily: '"Prompt", sans-serif' }}>{order.customer}</TableCell>
+                        <TableCell sx={{ fontFamily: '"Prompt", sans-serif' }}>{order.restaurant}</TableCell>
                         <TableCell>
-                          <Button
-                            startIcon={<Visibility />}
+                          <Chip 
+                            label={order.status} 
+                            color={getStatusColor(order.status)}
                             size="small"
-                            onClick={() => handleViewRestaurant(restaurant)}
-                            sx={{ mr: 1 }}
-                          >
-                            ดูรายละเอียด
-                          </Button>
+                            sx={{ 
+                              fontFamily: '"Prompt", sans-serif',
+                              fontWeight: 500,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ fontFamily: '"Prompt", sans-serif', fontWeight: 600 }}>
+                          ฿{order.total}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </TableContainer>
-            )}
-          </TabPanel>
-        </Container>
-      </Box>
+            </TabPanel>
 
-      {/* Restaurant Detail Dialog */}
-      <Dialog 
-        open={dialogOpen} 
-        onClose={() => setDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        {selectedRestaurant && (
-          <>
-            <DialogTitle>
-              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                รายละเอียดร้าน: {selectedRestaurant.name}
+            {/* ร้านรอการอนุมัติ Tab */}
+            <TabPanel value={tabValue} index={4}>
+              <Typography 
+                variant="h5" 
+                gutterBottom 
+                sx={{ 
+                  fontWeight: 'bold',
+                  fontFamily: '"Prompt", sans-serif',
+                  color: colors.neutral.darkGray,
+                }}
+              >
+                ร้านอาหารรอการอนุมัติ ({pendingRestaurants.length})
               </Typography>
-            </DialogTitle>
-            <DialogContent>
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  ข้อมูลเจ้าของร้าน
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>ชื่อ:</strong> {selectedRestaurant.owner}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>เบอร์โทร:</strong> {selectedRestaurant.phone}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>อีเมล:</strong> {selectedRestaurant.email}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 2 }}>
-                  <strong>ที่อยู่:</strong> {selectedRestaurant.address}
-                </Typography>
-
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  รายละเอียดร้าน
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 2 }}>
-                  {selectedRestaurant.description}
-                </Typography>
-
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  เอกสารแนบ ({selectedRestaurant.documents.length})
-                </Typography>
-                {selectedRestaurant.documents.length > 0 ? (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
-                    {selectedRestaurant.documents.map((doc) => {
-                      const isImage = doc.type.startsWith('image/');
-                      const isPdf = doc.type === 'application/pdf';
-                      const isWord = doc.type === 'application/msword' || doc.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-                      const isExcel = doc.type === 'application/vnd.ms-excel' || doc.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-                      
-                      return (
-                        <Box 
-                          key={doc.id}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 2,
-                            p: 2,
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            bgcolor: '#fafafa',
-                          }}
-                        >
-                          {isImage ? (
-                            <Box
-                              component="img"
-                              src={doc.url}
-                              alt={doc.name}
+              
+              {pendingRestaurants.length === 0 ? (
+                <Box sx={{ 
+                  mt: 2, 
+                  p: 3, 
+                  bgcolor: `${colors.secondary.fresh}15`, 
+                  borderRadius: 3, 
+                  border: `1px solid ${colors.secondary.fresh}30`,
+                  textAlign: 'center',
+                }}>
+                  <CheckCircle sx={{ fontSize: 48, color: colors.secondary.fresh, mb: 2 }} />
+                  <Typography 
+                    sx={{ 
+                      color: colors.secondary.fresh,
+                      fontFamily: '"Prompt", sans-serif',
+                      fontWeight: 500,
+                    }}
+                  >
+                    ไม่มีร้านอาหารที่รอการอนุมัติ
+                  </Typography>
+                </Box>
+              ) : (
+                <TableContainer 
+                  component={Paper}
+                  sx={{ 
+                    borderRadius: 3,
+                    boxShadow: `0 4px 12px ${colors.neutral.gray}10`,
+                  }}
+                >
+                  <Table>
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: colors.neutral.lightGray }}>
+                        <TableCell sx={{ fontFamily: '"Prompt", sans-serif', fontWeight: 600 }}>ชื่อร้าน</TableCell>
+                        <TableCell sx={{ fontFamily: '"Prompt", sans-serif', fontWeight: 600 }}>เจ้าของ</TableCell>
+                        <TableCell sx={{ fontFamily: '"Prompt", sans-serif', fontWeight: 600 }}>เบอร์โทร</TableCell>
+                        <TableCell sx={{ fontFamily: '"Prompt", sans-serif', fontWeight: 600 }}>วันที่สมัคร</TableCell>
+                        <TableCell sx={{ fontFamily: '"Prompt", sans-serif', fontWeight: 600 }}>การดำเนินการ</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {pendingRestaurants.map((restaurant) => (
+                        <TableRow key={restaurant.id}>
+                          <TableCell sx={{ fontFamily: '"Prompt", sans-serif', fontWeight: 500 }}>
+                            {restaurant.name}
+                          </TableCell>
+                          <TableCell sx={{ fontFamily: '"Prompt", sans-serif' }}>
+                            {restaurant.owner}
+                          </TableCell>
+                          <TableCell sx={{ fontFamily: '"Prompt", sans-serif' }}>
+                            {restaurant.phone}
+                          </TableCell>
+                          <TableCell sx={{ fontFamily: '"Prompt", sans-serif' }}>
+                            {formatDate(restaurant.submittedAt)}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<Visibility />}
+                              onClick={() => handleViewRestaurant(restaurant)}
                               sx={{
-                                width: 60,
-                                height: 60,
-                                borderRadius: 1,
-                                objectFit: 'cover',
-                                border: '2px solid #ddd',
-                              }}
-                            />
-                          ) : (
-                            <Box
-                              sx={{
-                                width: 60,
-                                height: 60,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                bgcolor: isPdf ? '#f44336' : isWord ? '#2B579A' : isExcel ? '#217346' : '#2196f3',
-                                borderRadius: 1,
-                                color: 'white',
-                                fontSize: '12px',
-                                fontWeight: 'bold',
+                                borderColor: colors.primary.golden,
+                                color: colors.primary.golden,
+                                fontFamily: '"Prompt", sans-serif',
+                                textTransform: 'none',
+                                '&:hover': {
+                                  borderColor: colors.primary.darkGolden,
+                                  bgcolor: `${colors.primary.golden}08`,
+                                },
                               }}
                             >
-                              {isPdf ? 'PDF' : isWord ? 'DOC' : isExcel ? 'XLS' : 'FILE'}
-                            </Box>
-                          )}
-                          <Box sx={{ flex: 1 }}>
-                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                              {doc.name}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {(doc.size / 1024 / 1024).toFixed(2)} MB • {new Date(doc.createdAt).toLocaleDateString('th-TH')}
-                            </Typography>
-                            <Box sx={{ mt: 0.5 }}>
-                              <Chip
-                                label={isImage ? 'รูปภาพ' : isPdf ? 'PDF' : isWord ? 'DOC' : isExcel ? 'XLS' : 'ไฟล์'}
-                                size="small"
-                                color={isImage ? 'success' : isPdf ? 'error' : isWord ? 'primary' : isExcel ? 'success' : 'default'}
-                                variant="outlined"
-                              />
+                              ดูรายละเอียด
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </TabPanel>
+
+            {/* อื่นๆ tabs */}
+            <TabPanel value={tabValue} index={1}>
+              <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', fontFamily: '"Prompt", sans-serif' }}>
+                จัดการผู้ใช้งาน
+              </Typography>
+              {/* เนื้อหาการจัดการผู้ใช้งาน */}
+            </TabPanel>
+
+            <TabPanel value={tabValue} index={2}>
+              <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', fontFamily: '"Prompt", sans-serif' }}>
+                จัดการร้านอาหาร
+              </Typography>
+              {/* เนื้อหาการจัดการร้านอาหาร */}
+            </TabPanel>
+
+            <TabPanel value={tabValue} index={3}>
+              <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', fontFamily: '"Prompt", sans-serif' }}>
+                จัดการไรเดอร์
+              </Typography>
+              {/* เนื้อหาการจัดการไรเดอร์ */}
+            </TabPanel>
+          </Paper>
+        </Container>
+
+        {/* Dialogs */}
+        <Dialog 
+          open={dialogOpen} 
+          onClose={() => setDialogOpen(false)}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              boxShadow: `0 8px 32px ${colors.neutral.gray}20`,
+            }
+          }}
+        >
+          {selectedRestaurant && (
+            <>
+              <DialogTitle sx={{ 
+                bgcolor: colors.neutral.lightGray,
+                borderBottom: `1px solid ${colors.neutral.lightGray}`,
+              }}>
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: 'bold',
+                    fontFamily: '"Prompt", sans-serif',
+                    color: colors.neutral.darkGray,
+                  }}
+                >
+                  รายละเอียดร้านอาหาร: {selectedRestaurant.name}
+                </Typography>
+              </DialogTitle>
+              <DialogContent sx={{ p: 3 }}>
+                {/* Restaurant Details */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1, fontFamily: '"Prompt", sans-serif' }}>
+                    ข้อมูลพื้นฐาน
+                  </Typography>
+                  <Typography sx={{ mb: 1, fontFamily: '"Prompt", sans-serif' }}>
+                    <strong>เจ้าของ:</strong> {selectedRestaurant.owner}
+                  </Typography>
+                  <Typography sx={{ mb: 1, fontFamily: '"Prompt", sans-serif' }}>
+                    <strong>อีเมล:</strong> {selectedRestaurant.email}
+                  </Typography>
+                  <Typography sx={{ mb: 1, fontFamily: '"Prompt", sans-serif' }}>
+                    <strong>เบอร์โทร:</strong> {selectedRestaurant.phone}
+                  </Typography>
+                  <Typography sx={{ mb: 1, fontFamily: '"Prompt", sans-serif' }}>
+                    <strong>ที่อยู่:</strong> {selectedRestaurant.address}
+                  </Typography>
+                  <Typography sx={{ mb: 1, fontFamily: '"Prompt", sans-serif' }}>
+                    <strong>รายละเอียด:</strong> {selectedRestaurant.description}
+                  </Typography>
+                </Box>
+
+                {/* Documents */}
+                {selectedRestaurant.documents.length > 0 && (
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, fontFamily: '"Prompt", sans-serif' }}>
+                      เอกสารประกอบ ({selectedRestaurant.documents.length} ไฟล์)
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {selectedRestaurant.documents.map((doc) => (
+                        <Paper 
+                          key={doc.id} 
+                          sx={{ 
+                            p: 3, 
+                            bgcolor: colors.neutral.white,
+                            borderRadius: 3,
+                            border: `1px solid ${colors.neutral.lightGray}`,
+                            boxShadow: `0 2px 8px ${colors.neutral.gray}10`,
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+                            {/* File Preview */}
+                            {renderFilePreview(doc)}
+                            
+                            {/* File Info */}
+                            <Box sx={{ flex: 1 }}>
+                              <Typography 
+                                variant="subtitle1" 
+                                sx={{ 
+                                  fontWeight: 'bold', 
+                                  fontFamily: '"Prompt", sans-serif',
+                                  color: colors.neutral.darkGray,
+                                  mb: 1,
+                                  wordBreak: 'break-word',
+                                }}
+                              >
+                                {doc.name}
+                              </Typography>
+                              
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 2 }}>
+                                <Typography 
+                                  variant="body2" 
+                                  sx={{ 
+                                    color: colors.neutral.gray, 
+                                    fontFamily: '"Prompt", sans-serif',
+                                  }}
+                                >
+                                  <strong>ขนาด:</strong> {formatFileSize(doc.size)}
+                                </Typography>
+                                <Typography 
+                                  variant="body2" 
+                                  sx={{ 
+                                    color: colors.neutral.gray, 
+                                    fontFamily: '"Prompt", sans-serif',
+                                  }}
+                                >
+                                  <strong>ประเภท:</strong> {doc.type}
+                                </Typography>
+                                <Typography 
+                                  variant="body2" 
+                                  sx={{ 
+                                    color: colors.neutral.gray, 
+                                    fontFamily: '"Prompt", sans-serif',
+                                  }}
+                                >
+                                  <strong>อัพโหลดเมื่อ:</strong> {formatDate(doc.createdAt)}
+                                </Typography>
+                              </Box>
+
+                              {/* File Type Badge */}
+                              <Box sx={{ mb: 2 }}>
+                                <Chip
+                                  label={
+                                    doc.type.startsWith('image/') ? 'รูปภาพ' :
+                                    doc.type.includes('pdf') ? 'เอกสาร PDF' :
+                                    doc.type.includes('word') ? 'เอกสาร Word' :
+                                    doc.type.includes('sheet') ? 'ไฟล์ Excel' : 'ไฟล์เอกสาร'
+                                  }
+                                  size="small"
+                                  sx={{
+                                    bgcolor: `${getFileTypeColor(doc.type)}15`,
+                                    color: getFileTypeColor(doc.type),
+                                    fontFamily: '"Prompt", sans-serif',
+                                    fontWeight: 500,
+                                    border: `1px solid ${getFileTypeColor(doc.type)}30`,
+                                  }}
+                                />
+                              </Box>
+
+                              {/* Action Buttons */}
+                              <Box sx={{ display: 'flex', gap: 1 }}>
+                                {/* Preview Button for Images */}
+                                {doc.type.startsWith('image/') && (
+                                  <Button
+                                    variant="outlined"
+                                    size="small"
+                                    onClick={() => handlePreviewFile(doc)}
+                                    sx={{
+                                      borderColor: colors.secondary.fresh,
+                                      color: colors.secondary.fresh,
+                                      fontFamily: '"Prompt", sans-serif',
+                                      textTransform: 'none',
+                                      borderRadius: 2,
+                                      px: 2,
+                                      '&:hover': {
+                                        borderColor: colors.secondary.darkFresh,
+                                        bgcolor: `${colors.secondary.fresh}08`,
+                                      },
+                                    }}
+                                    startIcon={
+                                      <Box sx={{ fontSize: '1.2rem' }}>👁️</Box>
+                                    }
+                                  >
+                                    ดูภาพ
+                                  </Button>
+                                )}
+
+                                {/* Download Button */}
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  onClick={() => handleDownloadFile(doc)}
+                                  sx={{
+                                    borderColor: colors.primary.golden,
+                                    color: colors.primary.golden,
+                                    fontFamily: '"Prompt", sans-serif',
+                                    textTransform: 'none',
+                                    borderRadius: 2,
+                                    px: 2,
+                                    '&:hover': {
+                                      borderColor: colors.primary.darkGolden,
+                                      bgcolor: `${colors.primary.golden}08`,
+                                    },
+                                  }}
+                                  startIcon={
+                                    <Box sx={{ fontSize: '1.2rem' }}>📥</Box>
+                                  }
+                                >
+                                  ดาวน์โหลด
+                                </Button>
+                              </Box>
                             </Box>
                           </Box>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => window.open(doc.url, '_blank')}
-                          >
-                            ดู
-                          </Button>
-                        </Box>
-                      );
-                    })}
+                        </Paper>
+                      ))}
+                    </Box>
                   </Box>
-                ) : (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    ไม่มีเอกสารแนบ
-                  </Typography>
                 )}
+              </DialogContent>
+              <DialogActions sx={{ p: 3, bgcolor: colors.neutral.lightGray }}>
+                <Button 
+                  onClick={() => setRejectDialogOpen(true)}
+                  variant="outlined"
+                  sx={{
+                    borderColor: colors.accent.warm,
+                    color: colors.accent.warm,
+                    fontFamily: '"Prompt", sans-serif',
+                    '&:hover': {
+                      borderColor: colors.accent.darkWarm,
+                      bgcolor: `${colors.accent.warm}08`,
+                    },
+                  }}
+                  disabled={loading}
+                >
+                  ปฏิเสธ
+                </Button>
+                <Button 
+                  onClick={() => handleApproveRestaurant(selectedRestaurant.id)}
+                  variant="contained"
+                  sx={{
+                    bgcolor: colors.secondary.fresh,
+                    color: colors.neutral.white,
+                    fontFamily: '"Prompt", sans-serif',
+                    '&:hover': {
+                      bgcolor: colors.secondary.darkFresh,
+                    },
+                  }}
+                  disabled={loading}
+                  startIcon={<CheckCircle />}
+                >
+                  อนุมัติ
+                </Button>
+              </DialogActions>
+            </>
+          )}
+        </Dialog>
 
-                <Typography variant="body2" color="text.secondary">
-                  <strong>วันที่สมัคร:</strong> {formatDate(selectedRestaurant.submittedAt)}
+        {/* Reject Reason Dialog */}
+        <Dialog 
+          open={rejectDialogOpen} 
+          onClose={() => setRejectDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              boxShadow: `0 8px 32px ${colors.neutral.gray}20`,
+            }
+          }}
+        >
+          <DialogTitle sx={{ 
+            bgcolor: colors.neutral.lightGray,
+            borderBottom: `1px solid ${colors.neutral.lightGray}`,
+          }}>
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontWeight: 'bold',
+                fontFamily: '"Prompt", sans-serif',
+                color: colors.neutral.darkGray,
+              }}
+            >
+              ระบุเหตุผลในการปฏิเสธ
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ p: 3 }}>
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="ระบุเหตุผลในการปฏิเสธ..."
+              sx={{ 
+                mt: 2,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  fontFamily: '"Prompt", sans-serif',
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    borderColor: colors.primary.golden,
+                  },
+                },
+              }}
+            />
+          </DialogContent>
+          <DialogActions sx={{ p: 3, bgcolor: colors.neutral.lightGray }}>
+            <Button 
+              onClick={() => setRejectDialogOpen(false)}
+              sx={{
+                color: colors.neutral.gray,
+                fontFamily: '"Prompt", sans-serif',
+              }}
+              disabled={loading}
+            >
+              ยกเลิก
+            </Button>
+            <Button 
+              onClick={handleRejectRestaurant}
+              variant="contained"
+              sx={{
+                bgcolor: colors.accent.warm,
+                color: colors.neutral.white,
+                fontFamily: '"Prompt", sans-serif',
+                '&:hover': {
+                  bgcolor: colors.accent.darkWarm,
+                },
+              }}
+              disabled={loading || !rejectReason.trim()}
+              startIcon={<Cancel />}
+            >
+              ปฏิเสธ
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* File Preview Dialog */}
+        <Dialog 
+          open={previewFileOpen} 
+          onClose={handleClosePreview}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              boxShadow: `0 8px 32px ${colors.neutral.gray}20`,
+              maxHeight: '90vh',
+            }
+          }}
+        >
+          {selectedFile && (
+            <>
+              <DialogTitle sx={{ 
+                bgcolor: colors.neutral.lightGray,
+                borderBottom: `1px solid ${colors.neutral.lightGray}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: 'bold',
+                    fontFamily: '"Prompt", sans-serif',
+                    color: colors.neutral.darkGray,
+                  }}
+                >
+                  ตัวอย่างไฟล์: {selectedFile.name}
                 </Typography>
-              </Box>
-            </DialogContent>
-            <DialogActions sx={{ p: 3 }}>
-              <Button 
-                onClick={() => setRejectDialogOpen(true)}
-                color="error"
-                variant="outlined"
-                disabled={loading}
-              >
-                ปฏิเสธ
-              </Button>
-              <Button 
-                onClick={() => handleApproveRestaurant(selectedRestaurant.id)}
-                color="success"
-                variant="contained"
-                disabled={loading}
-                startIcon={<CheckCircle />}
-              >
-                อนุมัติ
-              </Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
-
-      {/* Reject Reason Dialog */}
-      <Dialog 
-        open={rejectDialogOpen} 
-        onClose={() => setRejectDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-            ระบุเหตุผลในการปฏิเสธ
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="ระบุเหตุผลในการปฏิเสธ..."
-            sx={{ mt: 2 }}
-          />
-        </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
-          <Button 
-            onClick={() => setRejectDialogOpen(false)}
-            disabled={loading}
-          >
-            ยกเลิก
-          </Button>
-          <Button 
-            onClick={handleRejectRestaurant}
-            color="error"
-            variant="contained"
-            disabled={loading || !rejectReason.trim()}
-            startIcon={<Cancel />}
-          >
-            ปฏิเสธ
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
+                <IconButton 
+                  onClick={handleClosePreview}
+                  sx={{ color: colors.neutral.gray }}
+                >
+                  ✕
+                </IconButton>
+              </DialogTitle>
+              <DialogContent sx={{ p: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                {selectedFile.type.startsWith('image/') ? (
+                  <Box
+                    component="img"
+                    src={selectedFile.url}
+                    alt={selectedFile.name}
+                    sx={{
+                      maxWidth: '100%',
+                      maxHeight: '70vh',
+                      objectFit: 'contain',
+                      borderRadius: 2,
+                    }}
+                  />
+                ) : (
+                  <Box sx={{ p: 4, textAlign: 'center' }}>
+                    <Typography 
+                      sx={{ 
+                        fontSize: '4rem', 
+                        mb: 2,
+                        color: getFileTypeColor(selectedFile.type),
+                      }}
+                    >
+                      {getFileIcon(selectedFile.type)}
+                    </Typography>
+                    <Typography 
+                      variant="h6" 
+                      sx={{ 
+                        fontFamily: '"Prompt", sans-serif',
+                        color: colors.neutral.darkGray,
+                        mb: 1,
+                      }}
+                    >
+                      {selectedFile.name}
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        color: colors.neutral.gray,
+                        fontFamily: '"Prompt", sans-serif',
+                        mb: 3,
+                      }}
+                    >
+                      ขนาด: {formatFileSize(selectedFile.size)} | ประเภท: {selectedFile.type}
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      onClick={() => handleDownloadFile(selectedFile)}
+                      sx={{
+                        bgcolor: colors.primary.golden,
+                        color: colors.neutral.white,
+                        fontFamily: '"Prompt", sans-serif',
+                        textTransform: 'none',
+                        '&:hover': {
+                          bgcolor: colors.primary.darkGolden,
+                        },
+                      }}
+                      startIcon={
+                        <Box sx={{ fontSize: '1.2rem' }}>📥</Box>
+                      }
+                    >
+                      ดาวน์โหลดไฟล์
+                    </Button>
+                  </Box>
+                )}
+              </DialogContent>
+            </>
+          )}
+        </Dialog>
+      </Box>
+    </NoSSR>
   );
 } 

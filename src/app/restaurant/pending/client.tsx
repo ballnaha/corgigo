@@ -34,6 +34,7 @@ import {
   Business,
 } from '@mui/icons-material';
 import AppLayout from '@/components/AppLayout';
+import LoadingScreen from '@/components/LoadingScreen';
 
 interface RestaurantStatus {
   id: string;
@@ -257,15 +258,14 @@ export default function RestaurantPendingClient() {
   // แสดง loading ขณะรอ session
   if (sessionStatus === 'loading' || loading) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '100vh',
-        backgroundColor: '#FAFAFA',
-      }}>
-        <CircularProgress sx={{ color: '#F8A66E' }} size={40} />
-      </Box>
+      <LoadingScreen
+        step={sessionStatus === 'loading' ? 'auth' : 'data'}
+        showProgress={true}
+        currentStep={sessionStatus === 'loading' ? 1 : 2}
+        totalSteps={2}
+        customMessage={sessionStatus === 'loading' ? undefined : 'กำลังโหลดสถานะการสมัคร...'}
+        subtitle="ตรวจสอบสถานะการสมัครร้านอาหาร"
+      />
     );
   }
 

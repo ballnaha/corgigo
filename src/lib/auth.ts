@@ -51,11 +51,16 @@ export const authOptions: NextAuthOptions = {
             userRoles: user.userRoles?.length || 0
           });
 
-          const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
-
-          if (!isPasswordValid) {
-            console.log('❌ Invalid password for:', credentials.email);
-            return null;
+          // สำหรับ LINE login ไม่ต้องตรวจสอบรหัสผ่าน
+          if (credentials.password === 'line_login' && (user as any).lineId) {
+            // LINE login - ข้ามการตรวจสอบรหัสผ่าน
+          } else {
+            const isPasswordValid = await bcrypt.compare(credentials.password, user.password || '');
+            
+            if (!isPasswordValid) {
+              console.log('❌ Invalid password for:', credentials.email);
+              return null;
+            }
           }
 
           if (user.status !== 'ACTIVE') {

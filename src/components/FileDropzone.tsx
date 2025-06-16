@@ -67,14 +67,31 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
   disabled = false,
 }) => {
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
+    console.log('🎯 onDrop called:', { 
+      acceptedFiles: acceptedFiles.length, 
+      rejectedFiles: rejectedFiles.length,
+      currentFiles: files.length,
+      maxFiles 
+    });
+    
     if (rejectedFiles.length > 0) {
       console.warn('Rejected files:', rejectedFiles);
+      // ส่งไฟล์ที่ถูกปฏิเสธไปด้วย เพื่อให้ handleFileChange จัดการ
+      const rejectedValidFiles = rejectedFiles
+        .filter((f: any) => f.file)
+        .map((f: any) => f.file);
+      
+      if (rejectedValidFiles.length > 0) {
+        console.log('📋 Including rejected files for validation:', rejectedValidFiles.length);
+        onFilesChange([...acceptedFiles, ...rejectedValidFiles]);
+        return;
+      }
     }
     
     if (acceptedFiles.length > 0) {
       onFilesChange(acceptedFiles);
     }
-  }, [onFilesChange]);
+  }, [onFilesChange, files.length, maxFiles]);
 
   const {
     getRootProps,
@@ -89,9 +106,12 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
       return acc;
     }, {} as Record<string, string[]>),
     maxSize,
-    maxFiles: maxFiles - files.length,
+    // ไม่จำกัดจำนวนไฟล์ที่ dropzone level ให้จัดการใน handleFileChange แทน
+    // maxFiles: maxFiles - files.length,
     disabled: disabled || loading,
     multiple: true,
+    noClick: false,
+    noKeyboard: false,
   });
 
   const formatFileSize = (bytes: number) => {

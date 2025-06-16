@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { colors, themes } from '@/config/colors';
 import {
   Box,
   Typography,
@@ -21,6 +22,7 @@ import Sidebar from '../components/Sidebar';
 import Onboarding from '../components/Onboarding';
 import AppHeader from '../components/AppHeader';
 import FooterNavbar from '../components/FooterNavbar';
+import LoadingScreen from '../components/LoadingScreen';
 
 export default function HomePage() {
   const { data: session, status } = useSession();
@@ -132,27 +134,14 @@ export default function HomePage() {
 
   if (isInitialLoading) {
     return (
-      <Box sx={{ 
-          display: 'flex', 
-        flexDirection: 'column',
-          justifyContent: 'center', 
-          alignItems: 'center', 
-        height: '100vh',
-        bgcolor: '#FFFFFF',
-        gap: 2,
-      }}>
-        <CircularProgress sx={{ color: '#F8A66E' }} size={40} />
-        <Typography 
-          variant="body2" 
-          sx={{ 
-            fontFamily: 'Prompt, sans-serif',
-            color: '#666',
-            fontSize: '0.9rem',
-          }}
-        >
-          กำลังโหลดข้อมูล...
-        </Typography>
-      </Box>
+             <LoadingScreen
+         step={status === 'loading' ? 'auth' : 'data'}
+         showProgress={true}
+         currentStep={status === 'loading' ? 1 : 2}
+         totalSteps={2}
+         customMessage={status === 'loading' ? undefined : 'กำลังโหลดข้อมูล...'}
+         subtitle="เตรียมหน้าหลักสำหรับคุณ"
+       />
     );
   }
 
@@ -170,7 +159,7 @@ export default function HomePage() {
         deliveryAddress={userAddress || 'No Location'}
       />
 
-      <Box className="app-content" sx={{ bgcolor: '#FFFFFF' }}>
+      <Box className="app-content" sx={{ bgcolor: colors.neutral.white, minHeight: '100vh' }}>
         <Box sx={{ px: 2, py: 2 }}>
           <Box sx={{ mb: 3 }}>
           <Typography
@@ -178,7 +167,7 @@ export default function HomePage() {
             sx={{
               fontFamily: 'Prompt, sans-serif',
                 fontWeight: 600,
-              color: '#1A1A1A',
+              color: colors.neutral.darkGray,
                 fontSize: '1rem',
                 mb: 2,
             }}

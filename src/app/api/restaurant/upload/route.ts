@@ -41,6 +41,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ตรวจสอบจำนวนไฟล์ที่มีอยู่แล้ว
+    const existingFilesCount = await prisma.restaurantDocument.count({
+      where: { restaurantId: restaurant.id },
+    });
+
+    // ตรวจสอบว่าไฟล์ใหม่รวมกับไฟล์เก่าจะเกิน 10 ไฟล์หรือไม่
+    const totalFilesAfterUpload = existingFilesCount + files.length;
+    if (totalFilesAfterUpload > 10) {
+      const remainingSlots = 10 - existingFilesCount;
+      return NextResponse.json(
+        { error: `สามารถอัปโหลดได้สูงสุด 10 ไฟล์ ปัจจุบันมี ${existingFilesCount} ไฟล์แล้ว สามารถเพิ่มได้อีก ${remainingSlots} ไฟล์เท่านั้น` },
+        { status: 400 }
+      );
+    }
+
     const uploadedFiles = [];
     const uploadDir = join(process.cwd(), 'public', 'uploads', 'restaurants', restaurant.id);
 
@@ -50,12 +65,10 @@ export async function POST(request: NextRequest) {
     }
 
     for (const file of files) {
-      // ตรวจสอบขนาดไฟล์ (ไม่เกิน 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        return NextResponse.json(
-          { error: `ไฟล์ ${file.name} มีขนาดใหญ่เกินไป (ไม่เกิน 5MB)` },
-          { status: 400 }
-        );
+      // ตรวจสอบขนาดไฟล์ (ไม่เกิน 15MB)
+      if (file.size > 15 * 1024 * 1024) {
+        console.warn(`File ${file.name} is too large (${file.size} bytes)`);
+        continue;
       }
 
       // ตรวจสอบประเภทไฟล์
@@ -82,15 +95,8 @@ export async function POST(request: NextRequest) {
       const isValidType = allowedTypes.includes(file.type) || allowedExtensions.includes(fileExtension || '');
       
       if (!isValidType) {
-        console.log('File validation failed:', {
-          name: file.name,
-          type: file.type,
-          extension: fileExtension
-        });
-        return NextResponse.json(
-          { error: `ไฟล์ ${file.name} ไม่รองรับ (รองรับเฉพาะ JPG, PNG, PDF, DOC, DOCX, XLS, XLSX) - MIME type: ${file.type}` },
-          { status: 400 }
-        );
+        console.warn(`File ${file.name} has invalid type: ${file.type}`);
+        continue;
       }
 
       // สร้างชื่อไฟล์ใหม่เพื่อป้องกันการซ้ำ
@@ -127,7 +133,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `อัพโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`,
+      message: uploadedFiles.length > 0 ? 
+        `อัพโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์` :
+        'ไม่มีไฟล์ที่สามารถอัพโหลดได้ (ไฟล์อาจมีขนาดใหญ่เกินไป หรือเป็นประเภทที่ไม่รองรับ)',
       files: uploadedFiles,
     });
 

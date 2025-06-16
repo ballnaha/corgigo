@@ -42,6 +42,7 @@ import AppLayout from '@/components/AppLayout';
 import MiniMap from '@/components/MiniMap';
 import { useSnackbar } from '@/contexts/SnackbarContext';
 import FileDropzone from '@/components/FileDropzone';
+import LoadingScreen from '@/components/LoadingScreen';
 
 const theme = {
   primary: '#382c30',
@@ -170,6 +171,73 @@ interface UploadedFile {
   file?: File;
 }
 
+// Utility function to resize image (เอามาจากที่มีอยู่แล้วในโปรเจค)
+const resizeImage = (file: File, maxWidth: number = 800, maxHeight: number = 800, quality: number = 0.8): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) {
+      reject(new Error('ไม่สามารถสร้าง canvas context ได้'));
+      return;
+    }
+    
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    
+    // ตั้ง timeout เพื่อป้องกันการติดค้าง
+    const timeout = setTimeout(() => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error(`Timeout: ไม่สามารถ resize รูปภาพ ${file.name} ได้ภายใน 10 วินาที`));
+    }, 10000);
+
+    img.onload = () => {
+      clearTimeout(timeout);
+      try {
+        let { width, height } = img;
+        
+        // คำนวณขนาดใหม่
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob((blob) => {
+          URL.revokeObjectURL(objectUrl);
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error(`ไม่สามารถแปลง canvas เป็น blob สำหรับ ${file.name}`));
+          }
+        }, 'image/jpeg', quality);
+      } catch (error) {
+        clearTimeout(timeout);
+        URL.revokeObjectURL(objectUrl);
+        reject(error);
+      }
+    };
+
+    img.onerror = () => {
+      clearTimeout(timeout);
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error(`ไม่สามารถโหลดรูปภาพ ${file.name} ได้`));
+    };
+
+    img.src = objectUrl;
+  });
+};
+
 export default function RegisterRestaurantClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -207,6 +275,8 @@ export default function RegisterRestaurantClient() {
       loadExistingData();
     }
   }, [isEdit, session, justUpdated]);
+
+
 
   // ป้องกันการกระพริบเมื่อ keyboard ขึ้นมาใน mobile
   useEffect(() => {
@@ -401,13 +471,48 @@ export default function RegisterRestaurantClient() {
     }));
   };
 
-  const handleFileChange = (newFiles: File[]) => {
+  const handleFileChange = async (newFiles: File[]) => {
+    // ตรวจสอบจำนวนไฟล์ก่อนอื่น
+    const currentFilesCount = uploadedFiles.length;
+    const remainingSlots = 10 - currentFilesCount;
+    
+    // ถ้าไม่มีช่องเหลือ
+    if (remainingSlots <= 0) {
+      console.log('🚨 Showing max files error...');
+      console.log('🚨 DEBUG: remainingSlots =', remainingSlots, 'currentFilesCount =', currentFilesCount);
+      showSnackbar('ไม่สามารถเพิ่มไฟล์ได้อีก เนื่องจากมีไฟล์ครบ 10 ไฟล์แล้ว', 'error');
+      // เพิ่ม timeout เพื่อให้แน่ใจว่า snackbar จะแสดง
+      setTimeout(() => {
+        console.log('🔔 Snackbar should be visible now');
+      }, 100);
+      return;
+    }
+    
+    // ถ้าเลือกไฟล์เกินจำนวนที่เหลือ
+    let filesToProcess = newFiles;
+    let droppedFilesCount = 0;
+    
+    if (newFiles.length > remainingSlots) {
+      filesToProcess = Array.from(newFiles).slice(0, remainingSlots);
+      droppedFilesCount = newFiles.length - remainingSlots;
+      console.log('📝 Showing file limit warning...');
+      console.log('📝 DEBUG: newFiles.length =', newFiles.length, 'remainingSlots =', remainingSlots);
+      showSnackbar(
+        `⚠️ เลือกไฟล์ ${newFiles.length} ไฟล์ แต่สามารถเพิ่มได้เพียง ${remainingSlots} ไฟล์เท่านั้น จึงเลือกเฉพาะ ${remainingSlots} ไฟล์แรก`,
+        'info'
+      );
+      // เพิ่ม timeout เพื่อให้แน่ใจว่า snackbar จะแสดง
+      setTimeout(() => {
+        console.log('🔔 File limit warning snackbar should be visible now');
+      }, 100);
+    }
+    
     // ตรวจสอบไฟล์ก่อนเพิ่มเข้า state
     const validFiles: File[] = [];
     const invalidFiles: string[] = [];
     
-    for (let i = 0; i < newFiles.length; i++) {
-      const file = newFiles[i];
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const file = filesToProcess[i];
       
       // ตรวจสอบขนาดไฟล์ (ไม่เกิน 15MB)
       if (file.size > 15 * 1024 * 1024) {
@@ -448,6 +553,7 @@ export default function RegisterRestaurantClient() {
 
     // แสดง error เฉพาะเมื่อมีไฟล์ที่ไม่ถูกต้อง
     if (invalidFiles.length > 0) {
+      console.log('🚨 Showing invalid files error...');
       showSnackbar(`ไฟล์ที่ไม่สามารถใช้ได้: ${invalidFiles.join(', ')}`, 'error');
     }
 
@@ -455,19 +561,47 @@ export default function RegisterRestaurantClient() {
       return;
     }
 
+    // แสดงสถานะการ resize รูปภาพ (เฉพาะเมื่อมีรูปภาพ)
+    const imageFiles = validFiles.filter(file => file.type.startsWith('image/'));
+    const hasImages = imageFiles.length > 0;
+    
+    if (hasImages) {
+      showSnackbar(`🖼️ กำลัง resize รูปภาพ ${imageFiles.length} ไฟล์...`, 'info');
+    }
+
     // เพิ่มไฟล์เข้า state สำหรับแสดงผล (ไม่อัพโหลดทันที)
-    const newUploadedFiles: UploadedFile[] = validFiles.map((file, i) => {
+    const newUploadedFiles: UploadedFile[] = [];
+    
+    for (let i = 0; i < validFiles.length; i++) {
+      const file = validFiles[i];
       const fileId = Date.now().toString() + i;
       
-      // สร้าง object URL สำหรับ preview
+      let processedFile = file;
       let previewUrl = '';
       
-      // ตรวจสอบว่าเป็นมือถือหรือไม่
+      // ถ้าเป็นรูปภาพ ให้ resize ก่อน
+      if (file.type.startsWith('image/')) {
+        try {
+          console.log(`🖼️ Resizing image: ${file.name}`);
+          const resizedBlob = await resizeImage(file, 1200, 1200, 0.8);
+          
+          // สร้าง File object ใหม่จาก resized blob
+          processedFile = new File([resizedBlob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          
+          console.log(`✅ Image resized: ${file.name}, original: ${file.size}b, resized: ${processedFile.size}b`);
+        } catch (error) {
+          console.error(`❌ Error resizing image ${file.name}:`, error);
+          // ถ้า resize ไม่ได้ ให้ใช้ไฟล์เดิม
+        }
+      }
+      
+      // สร้าง preview URL
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       
-      console.log(`📱 Device check: isMobile=${isMobile}, file=${file.name}, type=${file.type}`);
-      
-      if (isMobile && file.type.startsWith('image/')) {
+      if (isMobile && processedFile.type.startsWith('image/')) {
         // ใช้ FileReader สำหรับมือถือ
         console.log(`📱 Using FileReader for mobile image: ${file.name}`);
         const reader = new FileReader();
@@ -480,52 +614,56 @@ export default function RegisterRestaurantClient() {
             ));
           }
         };
-        reader.onerror = (e) => {
-          console.error(`❌ FileReader error for ${file.name}:`, e);
-        };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(processedFile);
         
         // ใช้ placeholder URL ชั่วคราว
-        previewUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjhBNjZFIiBmaWxsLW9wYWNpdHk9IjAuMSIgcng9IjQiLz4KPHN2ZyB4PSIxMCIgeT0iMTAiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjRjhBNjZFIiBmaWxsLW9wYWNpdHk9IjAuNyI+CjxwYXRoIGQ9Ik0yMSAxOVY1YzAtMS4xLS45LTItMi0ySDVjLTEuMSAwLTIgLjktMiAydjE0YzAgMS4xLjkgMiAyIDJoMTRjMS4xIDAgMi0uOSAyLTJ6TTguNSAxMy41bDIuNSAzLjAxTDE0LjUgMTJsNC41IDZINWwzLjUtNC41eiIvPgo8L3N2Zz4KPC9zdmc+';
+        previewUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjhBNjZFIiBmaWxsLW9wYWNpdHk9IjAuMSIgcng9IjQiLz4KPHN2ZyB4PSIxMCIgeT0iMTAiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjRjhBNjZFIiBmaWxsLW9wYWNpdHk9IjAuNyI+CjxwYXRoIGQ9Ik0yMSAxOVY1YzAtMS4xLS45LTItMi0ySDVjLTEuMSAwLTIgLjktMiAydjE0YzAgMS4xLjkgMiAyIDJoMTRjMS4xIDAgMi0uOSAyLTJ6TTguNSAxMy41bDIuNSAzLjAxTDE0LjUgMTJsNC41IDZINWwzLjUtNC1eiIvPgo8L3N2Zz4KPC9zdmc+';
       } else {
         try {
           // ใช้ URL.createObjectURL สำหรับ desktop หรือไฟล์ที่ไม่ใช่รูปภาพ
-          previewUrl = URL.createObjectURL(file);
+          previewUrl = URL.createObjectURL(processedFile);
           console.log(`💻 Created object URL for ${file.name}: ${previewUrl.substring(0, 50)}...`);
         } catch (error) {
           console.error(`❌ Error creating object URL for ${file.name}:`, error);
           // ถ้าสร้าง URL ไม่ได้ ให้ใช้ placeholder
-          previewUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjhBNjZFIiBmaWxsLW9wYWNpdHk9IjAuMSIgcng9IjQiLz4KPHN2ZyB4PSIxMCIgeT0iMTAiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjRjhBNjZFIiBmaWxsLW9wYWNpdHk9IjAuNyI+CjxwYXRoIGQ9Ik0yMSAxOVY1YzAtMS4xLS45LTItMi0ySDVjLTEuMSAwLTIgLjktMiAydjE0YzAgMS4xLjkgMiAyIDJoMTRjMS4xIDAgMi0uOSAyLTJ6TTguNSAxMy41bDIuNSAzLjAxTDE0LjUgMTJsNC41IDZINWwzLjUtNC41eiIvPgo8L3N2Zz4KPC9zdmc+';
+          previewUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjhBNjZFIiBmaWxsLW9wYWNpdHk9IjAuMSIgcng9IjQiLz4KPHN2ZyB4PSIxMCIgeT0iMTAiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjRjhBNjZFIiBmaWxsLW9wYWNpdHk9IjAuNyI+CjxwYXRoIGQ9Ik0yMSAxOVY1YzAtMS4xLS45LTItMi0ySDVjLTEuMSAwLTIgLjktMiAydjE0YzAgMS4xLjkgMiAyIDJoMTRjMS4xIDAgMi0uOSAyLTJ6TTguNSAxMy41bDIuNSAzLjAxTDE0LjUgMTJsNC41IDZINWwzLjUtNC01eiIvPgo8L3N2Zz4KPC9zdmc+';
         }
       }
       
-      return {
+      newUploadedFiles.push({
         id: fileId,
         name: file.name,
-        size: file.size,
-        type: file.type,
+        size: processedFile.size, // ใช้ขนาดหลัง resize
+        type: processedFile.type,
         url: previewUrl,
-        file: file,
-      };
-    });
+        file: processedFile, // ใช้ไฟล์ที่ผ่านการ resize แล้ว
+      });
+    }
 
     // อัปเดต state ทั้งสองพร้อมกัน
     setUploadedFiles(prev => {
-      // เก็บไฟล์เก่าที่อัปโหลดแล้ว (มี URL ที่ขึ้นต้นด้วย /uploads)
-      const existingFiles = prev.filter(file => file.url?.startsWith('/uploads'));
+      // เก็บไฟล์เก่าทั้งหมด (ทั้งที่อัปโหลดแล้วและที่ยังไม่ได้อัปโหลด)
+      const existingFiles = prev;
       // รวมกับไฟล์ใหม่
       const combined = [...existingFiles, ...newUploadedFiles];
       console.log(`📁 Updated files list: existing=${existingFiles.length}, new=${newUploadedFiles.length}, total=${combined.length}`);
       return combined;
     });
+
+    // อัปเดต selectedFiles
     setSelectedFiles(prev => {
       const updated = [...prev, ...validFiles];
       console.log(`📄 Updated selected files: ${updated.length} files`);
       return updated;
     });
 
-    // แสดงข้อความสำเร็จ
-    showSnackbar(`เพิ่มไฟล์ ${validFiles.length} ไฟล์แล้ว`, 'success');
+    // แสดงข้อความสำเร็จรวม (ไม่แยก resize และเพิ่มไฟล์)
+    console.log('✅ Showing success message...');
+    if (hasImages) {
+      showSnackbar(`✅ เพิ่มไฟล์ ${validFiles.length} ไฟล์แล้ว (resize รูปภาพ ${imageFiles.length} ไฟล์เสร็จ)`, 'success');
+    } else {
+      showSnackbar(`✅ เพิ่มไฟล์ ${validFiles.length} ไฟล์แล้ว`, 'success');
+    }
   };
 
   const handleRemoveFile = async (fileId: string) => {
@@ -533,6 +671,7 @@ export default function RegisterRestaurantClient() {
     if (!fileToRemove) return;
 
     console.log(`🗑️ Removing file: ${fileToRemove.name} (${fileId})`);
+    showSnackbar(`กำลังลบไฟล์ "${fileToRemove.name}"...`, 'info');
 
     // ถ้าเป็นไฟล์ที่อัพโหลดแล้ว (มี URL ที่ขึ้นต้นด้วย /uploads) ให้ลบจากเซิร์ฟเวอร์
     if (isEdit && fileToRemove.url?.startsWith('/uploads')) {
@@ -544,11 +683,12 @@ export default function RegisterRestaurantClient() {
         const result = await response.json();
 
         if (!response.ok || !result.success) {
-          showSnackbar('ไม่สามารถลบไฟล์ได้', 'error');
+          showSnackbar('❌ ไม่สามารถลบไฟล์ได้', 'error');
           return; // ไม่ลบจาก state ถ้าลบจากเซิร์ฟเวอร์ไม่สำเร็จ
         }
         
         console.log(`✅ File deleted from server: ${fileId}`);
+        showSnackbar(`ลบไฟล์ "${fileToRemove.name}" สำเร็จ!`, 'success');
         // เพิ่มไฟล์ที่ลบแล้วเข้า list
         setDeletedFileIds(prev => [...prev, fileId]);
       } catch (error) {
@@ -567,16 +707,18 @@ export default function RegisterRestaurantClient() {
         }
       }
       
-      // ลบจาก selectedFiles ด้วย
+      // ลบจาก selectedFiles ด้วย  
       if (fileToRemove.file) {
         setSelectedFiles(prev => prev.filter(f => f !== fileToRemove.file));
         console.log(`🗑️ Removed from selectedFiles: ${fileToRemove.name}`);
       }
+      
+      showSnackbar(`ลบไฟล์ "${fileToRemove.name}" สำเร็จ!`, 'success');
     }
 
     // ลบจาก state
     setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
-    console.log(`🗑️ Removed from uploadedFiles: ${fileToRemove.name}`);
+    console.log(`Removed from uploadedFiles: ${fileToRemove.name}`);
   };
 
   const formatFileSize = (bytes: number) => {
@@ -737,21 +879,33 @@ export default function RegisterRestaurantClient() {
     
     // Validation
     if (!formData.name.trim()) {
+      console.log('🚨 Validation error: name required');
       showSnackbar('กรุณากรอกชื่อร้าน', 'error');
       return;
     }
     
     if (!formData.address.trim()) {
+      console.log('🚨 Validation error: address required');
       showSnackbar('กรุณากรอกที่อยู่ร้าน', 'error');
       return;
     }
     
     if (!formData.phone.trim()) {
+      console.log('🚨 Validation error: phone required');
       showSnackbar('กรุณากรอกเบอร์โทรศัพท์', 'error');
       return;
     }
 
     setLoading(true);
+    
+    // แจ้งเตือนเริ่มการบันทึก
+    if (selectedFiles.length > 0) {
+      console.log('📤 Starting file upload...');
+      showSnackbar(`📤 กำลังอัปโหลดไฟล์ ${selectedFiles.length} ไฟล์...`, 'info');
+    } else {
+      console.log('💾 Saving data...');
+      showSnackbar('💾 กำลังบันทึกข้อมูล...', 'info');
+    }
     
     try {
       // สร้าง FormData สำหรับส่งข้อมูลและไฟล์
@@ -772,9 +926,31 @@ export default function RegisterRestaurantClient() {
       
       // เพิ่มไฟล์ใหม่ที่เลือก (ทั้งโหมดใหม่และแก้ไข)
       if (selectedFiles.length > 0) {
-        selectedFiles.forEach(file => {
-          submitFormData.append('files', file);
-        });
+        console.log(`📁 Adding ${selectedFiles.length} files to upload...`);
+        
+        // หาไฟล์ที่ได้ resize แล้วใน uploadedFiles
+        const newUploadedFilesToSubmit = uploadedFiles.filter(uploadedFile => 
+          uploadedFile.file && selectedFiles.some(selectedFile => 
+            selectedFile.name === uploadedFile.name && selectedFile.size !== uploadedFile.size // ขนาดไม่เท่ากันแสดงว่า resize แล้ว
+          )
+        );
+
+        // ถ้ามีไฟล์ที่ resize แล้ว ให้ใช้ไฟล์เหล่านั้น
+        if (newUploadedFilesToSubmit.length > 0) {
+          console.log(`📁 Using pre-resized files: ${newUploadedFilesToSubmit.length} files`);
+          newUploadedFilesToSubmit.forEach(uploadedFile => {
+            if (uploadedFile.file) {
+              console.log(`✅ Adding resized file: ${uploadedFile.name} (${uploadedFile.size} bytes)`);
+              submitFormData.append('files', uploadedFile.file);
+            }
+          });
+        } else {
+          // fallback ใช้ selectedFiles
+          console.log(`📁 Fallback to selected files: ${selectedFiles.length} files`);
+          selectedFiles.forEach(file => {
+            submitFormData.append('files', file);
+          });
+        }
       }
 
       const method = isEdit ? 'PUT' : 'POST';
@@ -786,6 +962,12 @@ export default function RegisterRestaurantClient() {
       const result = await response.json();
 
       if (response.ok) {
+        // แจ้งเตือนความสำเร็จ
+        if (selectedFiles.length > 0) {
+          console.log('✅ Files uploaded successfully!');
+          showSnackbar(`✅ อัปโหลดไฟล์สำเร็จ ${selectedFiles.length} ไฟล์!`, 'success');
+        }
+        
         // ถ้าเป็นการแก้ไข ให้อัพเดทข้อมูลทันทีจาก response
         if (isEdit && result.restaurant) {
           // อัปเดต formData ด้วยข้อมูลใหม่จาก response
@@ -874,27 +1056,17 @@ export default function RegisterRestaurantClient() {
             
             console.log('🌐 Scrolling via window');
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            document.documentElement.scrollTop = 0;
-            document.body.scrollTop = 0;
             
             console.log('✅ Scroll commands executed');
-            showSnackbar('บันทึกสำเร็จ', 'success');
-            
-            // ตรวจสอบไฟล์หลังจาก submit สำเร็จ
-            setTimeout(() => {
-              console.log('🔍 Checking files after submit:', uploadedFiles.length, 'deleted files:', deletedFileIds.length);
-              if (uploadedFiles.length === 0 && deletedFileIds.length === 0) {
-                console.log('⚠️ Files missing after submit, reloading...');
-                loadExistingData();
-              }
-            }, 1000);
-          }, 200); // เพิ่มเวลาให้มากขึ้น
+            console.log('🎉 Showing success message...');
+            showSnackbar('🎉 บันทึกสำเร็จ!', 'success');
+          }, 200);
           
-          // ซ่อนสถานะอัพเดทหลังจาก 5 วินาที (เพิ่มเวลาเพื่อป้องกันการรีโหลด)
+          // ซ่อนสถานะอัพเดทหลังจาก 3 วินาที
           setTimeout(() => {
             console.log('🔄 Clearing justUpdated flag');
             setJustUpdated(false);
-          }, 5000);
+          }, 3000);
         } else {
           // สำหรับการสมัครใหม่ ให้แสดงข้อความและ refresh session
           showSnackbar('สมัครสำเร็จ', 'success');
@@ -906,47 +1078,43 @@ export default function RegisterRestaurantClient() {
           }, 2000);
         }
       } else {
+        // แจ้งเตือนเมื่อเกิดข้อผิดพลาด
+        if (selectedFiles.length > 0) {
+          console.log('❌ File upload failed!');
+          showSnackbar('❌ อัปโหลดไฟล์ไม่สำเร็จ!', 'error');
+        }
         showSnackbar(result.error || (isEdit ? 'ไม่สามารถอัพเดทได้' : 'ไม่สามารถสมัครได้'), 'error');
       }
     } catch (error) {
-      showSnackbar('เกิดข้อผิดพลาด', 'error');
+      console.error('Error during upload:', error);
+      if (selectedFiles.length > 0) {
+        showSnackbar('❌ เกิดข้อผิดพลาดในการอัปโหลดไฟล์', 'error');
+      } else {
+        showSnackbar('เกิดข้อผิดพลาด', 'error');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // รอให้ session loading เสร็จก่อน
-  if (status === 'loading') {
+  // รวม loading states ให้ดูเนียนตา
+  const isInitialLoading = status === 'loading' || loadingData;
+
+  if (isInitialLoading) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '100vh',
-        backgroundColor: '#FAFAFA',
-      }}>
-        <CircularProgress sx={{ color: '#F8A66E' }} size={40} />
-      </Box>
+      <LoadingScreen
+        step={status === 'loading' ? 'auth' : 'data'}
+        showProgress={true}
+        currentStep={status === 'loading' ? 1 : 2}
+        totalSteps={2}
+        subtitle={isEdit ? 'เตรียมข้อมูลสำหรับแก้ไข' : 'เตรียมฟอร์มสมัคร'}
+      />
     );
   }
 
   if (!session) {
     router.push('/auth/login');
     return null;
-  }
-
-  if (loadingData) {
-    return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '100vh',
-        backgroundColor: '#FAFAFA',
-      }}>
-        <CircularProgress sx={{ color: '#F8A66E' }} size={40} />
-      </Box>
-    );
   }
 
   return (
@@ -961,7 +1129,18 @@ export default function RegisterRestaurantClient() {
           py: 2, 
           px: 2,
           fontFamily: 'Prompt, sans-serif',
-          
+          opacity: 0,
+          animation: 'fadeIn 0.6s ease-out forwards',
+          '@keyframes fadeIn': {
+            '0%': { 
+              opacity: 0, 
+              transform: 'translateY(20px)' 
+            },
+            '100%': { 
+              opacity: 1, 
+              transform: 'translateY(0)' 
+            },
+          },
         }}
       >
         {/* Status Chip */}

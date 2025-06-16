@@ -5,15 +5,19 @@ import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import NoSSR from '@/components/NoSSR';
+import { useSnackbar } from '@/contexts/SnackbarContext';
+import { colors } from '@/config/colors';
 import {
   Box,
   TextField,
   Button,
   Typography,
-  Alert,
   IconButton,
   InputAdornment,
   Fade,
+  Checkbox,
+  FormControlLabel,
+  Link,
 } from '@mui/material';
 import {
   Visibility,
@@ -21,20 +25,26 @@ import {
   ArrowBack,
   Email,
   Lock,
+  Facebook,
+  Twitter,
+  Apple,
+  Chat,
+  Google,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
+import { getLineRedirectUri } from '@/config/urls';
 
 const theme = {
-  primary: '#382c30',
-  secondary: '#F35C76',
-  accent: '#F8A66E',
-  background: '#FFFFFF',
-  surface: '#FEFEFE',
-  text: '#382c30',
-  textSecondary: '#6B5B5D',
-  textLight: '#A0969A',
-  border: '#F0E6E2',
-  success: '#10B981',
+  primary: colors.secondary.fresh,      // Green สำหรับ primary
+  secondary: colors.accent.warm,        // Orange สำหรับ secondary
+  accent: colors.primary.golden,        // Golden สำหรับ accent/CTA
+  background: colors.neutral.white,     // White background
+  surface: colors.neutral.lightGray,    // Light gray surface
+  text: colors.neutral.darkGray,        // Dark gray text
+  textSecondary: colors.neutral.gray,   // Gray secondary text
+  textLight: colors.neutral.gray,       // Gray light text
+  border: colors.neutral.lightGray,     // Light gray borders
+  success: colors.secondary.fresh,      // Green for success
 };
 
 const FullScreenContainer = styled(Box)(() => ({
@@ -43,10 +53,23 @@ const FullScreenContainer = styled(Box)(() => ({
   display: 'flex',
   flexDirection: 'column',
   background: `linear-gradient(135deg, ${theme.background} 0%, ${theme.surface} 100%)`,
+  position: 'relative',
   margin: 0,
   padding: 0,
   overflowX: 'hidden',
-  position: 'relative',
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '300px',
+    background: `
+      radial-gradient(ellipse at top left, rgba(248, 166, 110, 0.1) 0%, transparent 50%),
+      linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.02) 50%, transparent 100%)
+    `,
+    zIndex: 1,
+  },
   '@media (max-width: 768px)': {
     minHeight: '100vh',
     height: '100vh',
@@ -77,119 +100,98 @@ const ContentWrapper = styled(Box)(() => ({
   maxWidth: '400px',
   margin: '0 auto',
   minHeight: '100dvh',
+  zIndex: 2,
   '@media (max-width: 768px)': {
     minHeight: '100vh',
     height: '100vh',
     justifyContent: 'flex-start',
-    paddingTop: '10vh',
+    paddingTop: '8vh',
+  },
+}));
+
+const CardContainer = styled(Box)(() => ({
+  backgroundColor: '#FFFFFF',
+  borderRadius: '24px 24px 0 0',
+  minHeight: '100dvh',
+  width: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '3rem 2rem 2rem',
+  paddingBottom: 'max(2rem, env(safe-area-inset-bottom) + 1rem)',
+  position: 'relative',
+  maxWidth: '100%',
+  margin: '0 auto',
+  marginTop: '10vh',
+  zIndex: 2,
+  boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.1)',
+  '@media (max-width: 768px)': {
+    minHeight: '90vh',
+    marginTop: '10vh',
+    borderRadius: '24px 24px 0 0',
+    padding: '2rem 1.5rem 2rem',
   },
 }));
 
 const BrandContainer = styled(Box)(() => ({
   textAlign: 'center',
-  marginBottom: '2rem',
+  marginBottom: '3rem',
   position: 'relative',
   '@media (max-width: 768px)': {
-    marginBottom: '1.5rem',
+    marginBottom: '2rem',
   },
 }));
 
-const StyledTextField = styled(TextField)(() => ({
-  '& .MuiOutlinedInput-root': {
-    borderRadius: '16px',
-    backgroundColor: theme.background,
-    fontSize: '1rem',
-    height: '56px',
-    position: 'relative',
-    overflow: 'hidden',
-    '@media (max-width: 768px)': {
-      fontSize: '16px !important',
-      transition: 'none !important',
-      transform: 'none !important',
-      willChange: 'auto',
-      backfaceVisibility: 'hidden',
-    },
-    '& .MuiOutlinedInput-notchedOutline': {
-      borderColor: theme.border,
-      borderWidth: '2px',
-      transition: 'border-color 0.2s ease',
-      '@media (max-width: 768px)': {
-        transition: 'none !important',
-      },
-    },
-    '&:hover .MuiOutlinedInput-notchedOutline': {
-      borderColor: theme.accent,
-    },
-    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-      borderColor: theme.accent,
-      borderWidth: '2px',
-    },
-    '&.Mui-focused': {
-      backgroundColor: theme.background,
-      transform: 'none !important',
-      '@media (max-width: 768px)': {
-        transform: 'none !important',
-        transition: 'none !important',
-      },
-    },
-  },
-  '& .MuiInputLabel-root': {
-    fontFamily: '"Prompt", sans-serif',
-    color: theme.textSecondary,
-    fontSize: '1rem',
-    transform: 'translate(14px, 16px) scale(1)',
+const SocialButton = styled(IconButton)(() => ({
+  width: '50px',
+  height: '50px',
+  borderRadius: '50%',
+  margin: '0 8px',
+  color: '#fff',
+  '&:hover': {
+    transform: 'translateY(-2px)',
     transition: 'all 0.2s ease',
-    '@media (max-width: 768px)': {
-      fontSize: '16px !important',
-      transition: 'none !important',
-      transform: 'translate(14px, 16px) scale(1) !important',
-      willChange: 'auto',
-    },
-    '&.MuiInputLabel-shrink': {
-      transform: 'translate(14px, -9px) scale(0.75)',
-      backgroundColor: theme.background,
-      padding: '0 8px',
-      '@media (max-width: 768px)': {
-        transform: 'translate(14px, -9px) scale(0.75) !important',
-        transition: 'none !important',
-      },
-    },
-    '&.Mui-focused': {
-      color: theme.accent,
-      '@media (max-width: 768px)': {
-        transition: 'none !important',
-      },
-    },
-  },
-  '& .MuiOutlinedInput-input': {
-    padding: '16px 14px',
-    '@media (max-width: 768px)': {
-      fontSize: '16px !important',
-      transition: 'none !important',
-      transform: 'none !important',
-      willChange: 'auto',
-      '-webkit-appearance': 'none',
-      '-webkit-tap-highlight-color': 'transparent',
-    },
-    '&:focus': {
-      outline: 'none !important',
-      backgroundColor: 'transparent !important',
-      transform: 'none !important',
-      '@media (max-width: 768px)': {
-        fontSize: '16px !important',
-        zoom: '1 !important',
-      },
-    },
   },
 }));
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [isLineLogin, setIsLineLogin] = useState(false);
   const router = useRouter();
+  const { showSnackbar } = useSnackbar();
+
+  // ตรวจสอบ LINE callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const lineToken = urlParams.get('line_token');
+    const success = urlParams.get('success');
+    const error = urlParams.get('error');
+
+    if (success === 'true' && lineToken) {
+      // LINE login สำเร็จ
+      setIsLineLogin(true);
+      handleLineCallback(lineToken);
+    } else if (error) {
+      // LINE login ผิดพลาด
+      const errorMessages: Record<string, string> = {
+        'line_login_failed': 'การเข้าสู่ระบบ LINE ล้มเหลว',
+        'no_code': 'ไม่ได้รับรหัสยืนยันจาก LINE',
+        'token_exchange_failed': 'ไม่สามารถแลกเปลี่ยน token ได้',
+        'profile_failed': 'ไม่สามารถดึงข้อมูลโปรไฟล์ได้',
+        'login_failed': 'การเข้าสู่ระบบล้มเหลว',
+        'callback_error': 'เกิดข้อผิดพลาดในการประมวลผล',
+      };
+      showSnackbar(errorMessages[error] || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ', 'error');
+      
+      // ลบ error parameters จาก URL
+      window.history.replaceState({}, document.title, '/auth/login');
+    }
+  }, []);
 
   // ป้องกันการกระพริบเมื่อ keyboard ขึ้นมาใน mobile
   useEffect(() => {
@@ -199,165 +201,117 @@ export default function LoginPage() {
     
     if (!isMobile) return;
 
-    // เก็บค่า viewport เดิม
-    const originalViewportHeight = window.innerHeight;
-    const originalBodyHeight = document.body.style.height;
-    const originalHtmlHeight = document.documentElement.style.height;
-    
-    // ตั้งค่า viewport meta tag เพื่อป้องกัน zoom
-    const viewport = document.querySelector('meta[name=viewport]') as HTMLMetaElement;
-    const originalViewportContent = viewport?.content || '';
-    
-    if (viewport) {
-      viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
-    }
-    
-    // ตั้งค่า initial state สำหรับ mobile
-    document.body.style.position = 'fixed';
-    document.body.style.width = '100%';
-    document.body.style.height = '100vh';
-    document.documentElement.style.height = '100vh';
-    
-    // เพิ่ม CSS เพื่อป้องกันการกระพริบ
-    const style = document.createElement('style');
-    style.textContent = `
-      @media (max-width: 768px) {
-        * {
-          -webkit-backface-visibility: hidden !important;
-          backface-visibility: hidden !important;
-          -webkit-perspective: 1000px !important;
-          perspective: 1000px !important;
-        }
-        
-        input, textarea {
-          -webkit-user-select: text !important;
-          user-select: text !important;
-          -webkit-appearance: none !important;
-          appearance: none !important;
-          font-size: 16px !important;
-          transform: translateZ(0) !important;
-        }
-        
-        .MuiOutlinedInput-root {
-          transform: translateZ(0) !important;
-        }
+    // สำหรับ iOS ใช้วิธีป้องกันที่แตกต่าง
+    if (isIOS) {
+      const viewport = document.querySelector('meta[name=viewport]');
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
       }
-    `;
-    document.head.appendChild(style);
+    }
+
+    let isKeyboardOpen = false;
+    const initialHeight = window.innerHeight;
+    let resizeTimeout: NodeJS.Timeout;
 
     const handleResize = () => {
-      // ป้องกัน viewport jumping เมื่อ keyboard ขึ้นมา
-      const currentHeight = window.innerHeight;
-      const heightDifference = originalViewportHeight - currentHeight;
-      
-      if (heightDifference > 150) { // keyboard is likely open
-        document.body.style.height = `${originalViewportHeight}px`;
-        document.documentElement.style.height = `${originalViewportHeight}px`;
-      } else {
-        document.body.style.height = '100vh';
-        document.documentElement.style.height = '100vh';
-      }
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        const currentHeight = window.innerHeight;
+        const heightDifference = initialHeight - currentHeight;
+        
+        if (heightDifference > 150) {
+          if (!isKeyboardOpen) {
+            isKeyboardOpen = true;
+            document.body.style.height = `${currentHeight}px`;
+            document.documentElement.style.height = `${currentHeight}px`;
+          }
+        } else {
+          if (isKeyboardOpen) {
+            isKeyboardOpen = false;
+            document.body.style.height = '';
+            document.documentElement.style.height = '';
+          }
+        }
+      }, 100);
     };
 
     const handleFocus = (e: FocusEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        // ป้องกันการ scroll และ zoom
-        e.target.scrollIntoView = () => {}; // ปิด scrollIntoView
-        
-        // ป้องกัน iOS Safari zoom
-        if (isIOS && viewport) {
-          viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
-        }
-        
+      if (e.target && e.target instanceof HTMLInputElement) {
+        const target = e.target as HTMLInputElement;
         setTimeout(() => {
-          window.scrollTo(0, 0);
-          document.body.scrollTop = 0;
-          document.documentElement.scrollTop = 0;
-        }, 50);
+          target.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'nearest'
+          });
+        }, 300);
       }
     };
 
     const handleBlur = () => {
-      // รีเซ็ต viewport เมื่อ blur
       setTimeout(() => {
         window.scrollTo(0, 0);
-        document.body.scrollTop = 0;
-        document.documentElement.scrollTop = 0;
-        
-        // รีเซ็ต height
-        document.body.style.height = '100vh';
-        document.documentElement.style.height = '100vh';
       }, 100);
     };
 
+    // ป้องกัน double-tap zoom
     const handleTouchStart = (e: TouchEvent) => {
-      // ป้องกัน pinch zoom
       if (e.touches.length > 1) {
         e.preventDefault();
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      // ป้องกัน scroll เมื่อ keyboard เปิด
       if (e.touches.length > 1) {
         e.preventDefault();
       }
     };
 
-    // เพิ่ม event listeners
-    window.addEventListener('resize', handleResize, { passive: false });
-    document.addEventListener('focusin', handleFocus, { passive: false });
-    document.addEventListener('focusout', handleBlur, { passive: false });
+    // Event listeners
+    window.addEventListener('resize', handleResize);
+    document.addEventListener('focusin', handleFocus);
+    document.addEventListener('focusout', handleBlur);
     document.addEventListener('touchstart', handleTouchStart, { passive: false });
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
 
     return () => {
-      // รีเซ็ตค่าเดิม
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.height = originalBodyHeight;
-      document.documentElement.style.height = originalHtmlHeight;
-      
-      // รีเซ็ต viewport
-      if (viewport && originalViewportContent) {
-        viewport.content = originalViewportContent;
-      }
-      
-      // ลบ style ที่เพิ่มเข้าไป
-      document.head.removeChild(style);
-      
-      // ลบ event listeners
+      clearTimeout(resizeTimeout);
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('focusin', handleFocus);
       document.removeEventListener('focusout', handleBlur);
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchmove', handleTouchMove);
+      
+      // คืนค่าเดิม
+      document.body.style.height = '';
+      document.documentElement.style.height = '';
     };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     try {
       const result = await signIn('credentials', {
         email,
         password,
-        role: 'CUSTOMER',
         redirect: false,
       });
 
       if (result?.error) {
-        setError(result.error);
+        showSnackbar('อีเมลหรือรหัสผ่านไม่ถูกต้อง', 'error');
       } else {
+        showSnackbar('เข้าสู่ระบบสำเร็จ', 'success');
         const session = await getSession();
-        if (session?.user) {
+        if (session?.user?.primaryRole === 'RESTAURANT') {
+          router.push('/');
+        } else {
           router.push('/');
         }
       }
-    } catch (error: any) {
-      setError(error.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+    } catch (error) {
+      showSnackbar('เกิดข้อผิดพลาดในการเข้าสู่ระบบ', 'error');
     } finally {
       setLoading(false);
     }
@@ -367,96 +321,423 @@ export default function LoginPage() {
     router.back();
   };
 
+  // ฟังก์ชันสำหรับจัดการ LINE callback token
+  const handleLineCallback = async (token: string) => {
+    try {
+      setLoading(true);
+      showSnackbar('กำลังดำเนินการเข้าสู่ระบบ...', 'info');
+
+      const tokenData = JSON.parse(Buffer.from(token, 'base64').toString());
+      
+      // ตรวจสอบความถูกต้องของ token (ไม่เก่าเกิน 5 นาที)
+      if (Date.now() - tokenData.timestamp > 5 * 60 * 1000) {
+        showSnackbar('Token หมดอายุ กรุณาลองใหม่อีกครั้ง', 'error');
+        return;
+      }
+
+      // Sign in with NextAuth
+      const signInResult = await signIn('credentials', {
+        email: tokenData.email,
+        password: 'line_login',
+        redirect: false,
+      });
+
+      if (!signInResult?.error) {
+        showSnackbar('เข้าสู่ระบบด้วย LINE สำเร็จ!', 'success');
+        const session = await getSession();
+        if (session?.user?.primaryRole === 'RESTAURANT') {
+          router.push('/');
+        } else {
+          router.push('/');
+        }
+      } else {
+        showSnackbar('เกิดข้อผิดพลาดในการเข้าสู่ระบบ', 'error');
+      }
+    } catch (error) {
+      showSnackbar('Token ไม่ถูกต้อง', 'error');
+    } finally {
+      setLoading(false);
+      // ลบ parameters จาก URL
+      window.history.replaceState({}, document.title, '/auth/login');
+    }
+  };
+
+  const handleLineLogin = async () => {
+    try {
+      setLoading(true);
+      setIsLineLogin(true);
+      showSnackbar('กำลังเปิดหน้า LINE Login...', 'info');
+      
+      // สร้าง LINE Login URL
+      const lineLoginUrl = new URL('https://access.line.me/oauth2/v2.1/authorize');
+      lineLoginUrl.searchParams.set('response_type', 'code');
+      lineLoginUrl.searchParams.set('client_id', process.env.NEXT_PUBLIC_LINE_CHANNEL_ID || '');
+      lineLoginUrl.searchParams.set('redirect_uri', getLineRedirectUri());
+      
+      lineLoginUrl.searchParams.set('state', Math.random().toString(36).substring(7));
+      lineLoginUrl.searchParams.set('scope', 'profile openid');
+      
+      // เปิดหน้า LINE Login
+      window.location.href = lineLoginUrl.toString();
+      
+    } catch (error) {
+      showSnackbar('เกิดข้อผิดพลาดในการเปิดหน้า LINE Login', 'error');
+      setLoading(false);
+    }
+  };
+
+  // ฟังก์ชันสำหรับ LIFF (LINE Frontend Framework)
+  const handleLiffLogin = async () => {
+    try {
+      setLoading(true);
+      setIsLineLogin(true);
+      showSnackbar('กำลังเข้าสู่ระบบด้วย LINE...', 'info');
+
+      // เช็คว่าอยู่ใน LINE App หรือไม่
+      if (typeof window !== 'undefined' && (window as any).liff) {
+        const liff = (window as any).liff;
+        
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+        
+        const accessToken = liff.getAccessToken();
+        
+        const response = await fetch('/api/auth/line-callback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ accessToken }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          showSnackbar(result.message, 'success');
+          
+          // Sign in with NextAuth
+          const signInResult = await signIn('credentials', {
+            email: result.user.email,
+            password: 'line_login',
+            redirect: false,
+          });
+
+          if (!signInResult?.error) {
+            const session = await getSession();
+            if (session?.user?.primaryRole === 'RESTAURANT') {
+              router.push('/');
+            } else {
+              router.push('/');
+            }
+          } else {
+            showSnackbar('เกิดข้อผิดพลาดในการเข้าสู่ระบบ', 'error');
+          }
+        } else {
+          showSnackbar(result.error || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย LINE', 'error');
+        }
+      } else {
+        // ถ้าไม่อยู่ใน LINE App ให้ใช้ Web Login
+        handleLineLogin();
+      }
+    } catch (error) {
+      showSnackbar('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <NoSSR>
       <FullScreenContainer>
-        <ContentWrapper>
+        <CardContainer>
           <Fade in={true} timeout={600}>
-            <Box sx={{ width: '100%' }}>
+            <Box sx={{ width: '100%', maxWidth: '400px' }}>
               {/* Brand */}
               <BrandContainer>
-                <Image src="/images/corgigo-logo.webp" alt="CorgiGo" width={180} height={130} style={{ display: 'block' , marginLeft: 'auto' , marginRight: 'auto' , marginBottom: '1rem' }} />
+                <Image src="/images/header-logo.png" alt="logo" width={200} height={60} />
                 
                 <Typography
-                  variant="h6"
-                  color={theme.textSecondary}
+                  variant="body1"
                   sx={{
                     fontFamily: '"Prompt", sans-serif',
                     fontWeight: 400,
-                    fontSize: '1.1rem',
+                    fontSize: '1rem',
+                    color: '#666666',
                   }}
                 >
-                  เข้าสู่ระบบบัญชีของคุณ
+                  เข้าสู่ระบบ
                 </Typography>
               </BrandContainer>
 
-              {error && (
-                <Alert 
-                  severity="error" 
-                  sx={{ 
-                    mb: 3,
-                    borderRadius: '16px',
-                    border: 'none',
-                    bgcolor: '#FFF5F5',
-                    color: theme.accent,
-                    boxShadow: `0 4px 12px ${theme.accent}15`,
-                  }}
-                >
-                  {error}
-                </Alert>
-              )}
-
               <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-                {/* Email Field */}
-                <StyledTextField
-                  fullWidth
-                  label="อีเมล"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Email sx={{ color: theme.textLight, fontSize: 20 }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{ mb: 2 }} // ลด spacing
-                />
+                {/* Show form fields only when not in LINE login mode */}
+                {!isLineLogin && (
+                  <>
+                    {/* Email Field */}
+                    <Box sx={{ mb: 2 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontFamily: '"Prompt", sans-serif',
+                      color: theme.text,
+                      mb: 1,
+                      fontWeight: 500,
+                    }}
+                  >
+                    EMAIL
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="example@gmail.com"
+                    type="email"
+                    value={email}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    variant="outlined"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '12px',
+                        backgroundColor: colors.neutral.lightGray,
+                        fontSize: '1rem',
+                        height: '56px',
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: colors.neutral.lightGray,
+                          borderWidth: '1px',
+                        },
+                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                          borderColor: theme.accent,
+                        },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                          borderColor: theme.accent,
+                          borderWidth: '2px',
+                        },
+                      },
+                      '& .MuiOutlinedInput-input': {
+                        padding: '16px 14px',
+                        color: theme.text,
+                        fontFamily: '"Prompt", sans-serif',
+                        '@media (max-width: 768px)': {
+                          fontSize: '16px !important',
+                        },
+                      },
+                    }}
+                  />
+                </Box>
 
                 {/* Password Field */}
-                <StyledTextField
-                  fullWidth
-                  label="รหัสผ่าน"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Lock sx={{ color: theme.textLight, fontSize: 20 }} />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowPassword(!showPassword)}
-                          edge="end"
-                          sx={{ color: theme.textLight }}
-                        >
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{ mb: 3 }} // ลด spacing
-                />
+                <Box sx={{ mb: 2 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontFamily: '"Prompt", sans-serif',
+                      color: theme.text,
+                      mb: 1,
+                      fontWeight: 500,
+                    }}
+                  >
+                    PASSWORD
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="••••••••••••"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                    variant="outlined"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '12px',
+                        backgroundColor: colors.neutral.lightGray,
+                        fontSize: '1rem',
+                        height: '56px',
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: colors.neutral.lightGray,
+                          borderWidth: '1px',
+                        },
+                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                          borderColor: theme.accent,
+                        },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                          borderColor: theme.accent,
+                          borderWidth: '2px',
+                        },
+                      },
+                      '& .MuiOutlinedInput-input': {
+                        padding: '16px 14px',
+                        color: theme.text,
+                        fontFamily: '"Prompt", sans-serif',
+                        '@media (max-width: 768px)': {
+                          fontSize: '16px !important',
+                        },
+                      },
+                    }}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => setShowPassword(!showPassword)}
+                            edge="end"
+                            sx={{ color: theme.textSecondary }}
+                          >
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Box>
 
-                {/* Login Button */}
+                {/* Remember me & Forgot Password */}
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  mb: 3 
+                }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        sx={{
+                          color: theme.textSecondary,
+                          '&.Mui-checked': {
+                            color: theme.primary,
+                          },
+                        }}
+                      />
+                    }
+                    label={
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontFamily: '"Prompt", sans-serif',
+                          color: theme.textSecondary,
+                          fontSize: '0.9rem',
+                        }}
+                      >
+                        Remember me
+                      </Typography>
+                    }
+                  />
+                  
+                  <Link
+                    component="button"
+                    type="button"
+                    onClick={() => router.push('/auth/forgot-password')}
+                    sx={{
+                      color: theme.secondary,
+                      fontFamily: '"Prompt", sans-serif',
+                      fontSize: '0.9rem',
+                      textDecoration: 'none',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        textDecoration: 'underline',
+                      },
+                    }}
+                  >
+                    Forgot Password?
+                  </Link>
+                </Box>
+                  </>
+                )}
+
+                {/* Show login status for LINE mode */}
+                {isLineLogin && (
+                  <Box 
+                    sx={{ 
+                      textAlign: 'center', 
+                      mb: 4,
+                      p: 3,
+                      backgroundColor: `${colors.secondary.lightFresh}20`,
+                      borderRadius: '16px',
+                      border: `2px solid ${colors.secondary.fresh}`,
+                    }}
+                  >
+                    <Box sx={{ mb: 2 }}>
+                      <Typography
+                        variant="h2"
+                        sx={{
+                          fontSize: '3rem',
+                          mb: 1,
+                          animation: 'spin 2s linear infinite',
+                        }}
+                      >
+                        🔄
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontFamily: '"Prompt", sans-serif',
+                        color: colors.secondary.fresh,
+                        fontWeight: 600,
+                        mb: 1,
+                      }}
+                    >
+                      กำลังเข้าสู่ระบบด้วย LINE
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        fontFamily: '"Prompt", sans-serif',
+                        color: theme.textSecondary,
+                        mb: 2,
+                      }}
+                    >
+                      กรุณารอสักครู่...
+                    </Typography>
+                    <Box
+                      sx={{
+                        width: '100%',
+                        height: '4px',
+                        backgroundColor: colors.neutral.lightGray,
+                        borderRadius: '2px',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: '30%',
+                          height: '100%',
+                          backgroundColor: colors.secondary.fresh,
+                          borderRadius: '2px',
+                          animation: 'loading 1.5s ease-in-out infinite',
+                        }}
+                      />
+                    </Box>
+                    
+                    {/* Cancel Button */}
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setIsLineLogin(false);
+                        setLoading(false);
+                        window.history.replaceState({}, document.title, '/auth/login');
+                      }}
+                      sx={{
+                        mt: 2,
+                        color: colors.secondary.fresh,
+                        borderColor: colors.secondary.fresh,
+                        fontFamily: '"Prompt", sans-serif',
+                        '&:hover': {
+                          borderColor: colors.secondary.darkFresh,
+                          backgroundColor: `${colors.secondary.fresh}08`,
+                        },
+                      }}
+                    >
+                      ยกเลิก
+                    </Button>
+                  </Box>
+                )}
+
+                {/* Login Button - Show only for normal login */}
+                {!isLineLogin && (
                 <Button
                   type="submit"
                   fullWidth
@@ -464,125 +745,64 @@ export default function LoginPage() {
                   disabled={loading}
                   sx={{
                     bgcolor: theme.accent,
-                    color: '#fff',
-                    borderRadius: '16px',
+                    color: colors.neutral.white,
+                    borderRadius: '12px',
                     py: 2,
                     fontFamily: '"Prompt", sans-serif',
                     fontWeight: 600,
-                    fontSize: '1.1rem',
+                    fontSize: '1rem',
                     textTransform: 'none',
-                    boxShadow: `0 8px 32px ${theme.accent}30`,
-                    mb: 4,
-                    position: 'relative',
-                    overflow: 'hidden',
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      top: 0,
-                      left: '-100%',
-                      width: '100%',
-                      height: '100%',
-                      background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
-                      transition: 'left 0.5s',
-                    },
+                    mb: 3,
                     '&:hover': {
-                      bgcolor: theme.accent,
-                      boxShadow: `0 12px 40px ${theme.accent}40`,
-                      transform: 'translateY(-2px)',
-                      '&::before': {
-                        left: '100%',
-                      },
+                      bgcolor: colors.primary.darkGolden,
                     },
                     '&:disabled': {
                       bgcolor: theme.border,
                       color: theme.textLight,
-                      transform: 'none',
-                      boxShadow: 'none',
                     },
-                    '&:active': {
-                      transform: loading ? 'none' : 'translateY(0)',
-                    },
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                 >
-                  {loading ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box
-                        sx={{
-                          width: 20,
-                          height: 20,
-                          border: '2px solid transparent',
-                          borderTop: '2px solid currentColor',
-                          borderRadius: '50%',
-                          animation: 'spin 1s linear infinite',
-                        }}
-                      />
-                      กำลังเข้าสู่ระบบ...
-                    </Box>
-                  ) : (
-                    'เข้าสู่ระบบ'
-                  )}
+                  {loading ? 'กำลังเข้าสู่ระบบ...' : 'LOG IN'}
                 </Button>
+                )}
 
-                {/* Register Link */}
-                <Box textAlign="center">
+                {/* Register Link - Show only for normal login */}
+                {!isLineLogin && (
+                <Box textAlign="center" sx={{ mb: 3 }}>
                   <Typography
                     variant="body1"
-                    color={theme.textSecondary}
-                    sx={{ fontFamily: '"Prompt", sans-serif', mb: 1 }}
-                  >
-                    ยังไม่มีบัญชี?
-                  </Typography>
-                  <Button
-                    onClick={() => router.push('/auth/register')}
-                    variant="outlined"
-                    fullWidth
-                    sx={{
-                      borderColor: theme.secondary,
-                      color: theme.secondary,
-                      borderRadius: '16px',
-                      py: 1.5,
-                      textTransform: 'none',
+                    sx={{ 
                       fontFamily: '"Prompt", sans-serif',
-                      fontWeight: 500,
-                      fontSize: '1rem',
+                      color: theme.textSecondary,
+                      display: 'inline',
+                    }}
+                  >
+                    ยังไม่มีบัญชี?{' '}
+                  </Typography>
+                  <Link
+                    component="button"
+                    type="button"
+                    onClick={() => router.push('/auth/register')}
+                    sx={{
+                      color: theme.secondary,
+                      fontFamily: '"Prompt", sans-serif',
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      cursor: 'pointer',
                       '&:hover': {
-                        borderColor: theme.secondary,
-                        color: '#fff',
-                        bgcolor: theme.secondary,
-                        transform: 'translateY(-1px)',
-                        boxShadow: `0 4px 12px ${theme.secondary}30`,
+                        textDecoration: 'underline',
                       },
-                      transition: 'all 0.2s ease',
                     }}
                   >
                     สมัครสมาชิก
-                  </Button>
+                  </Link>
                 </Box>
-
-                {/* Forgot Password */}
-                <Box textAlign="center" mt={3}>
-                  <Button
-                    onClick={() => router.push('/auth/forgot-password')}
-                    sx={{
-                      color: theme.textLight,
-                      fontFamily: '"Prompt", sans-serif',
-                      fontSize: '0.9rem',
-                      textTransform: 'none',
-                      '&:hover': {
-                        color: theme.accent,
-                        bgcolor: 'transparent',
-                      },
-                      transition: 'color 0.2s ease',
-                    }}
-                  >
-                    ลืมรหัสผ่าน?
-                  </Button>
-                </Box>
+                )}
+                
               </Box>
             </Box>
           </Fade>
-        </ContentWrapper>
+        </CardContainer>
       </FullScreenContainer>
 
       {/* Custom CSS for loading animation */}
@@ -590,6 +810,12 @@ export default function LoginPage() {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes loading {
+          0% { transform: translateX(-100%); }
+          50% { transform: translateX(300%); }
+          100% { transform: translateX(-100%); }
         }
         
         /* ป้องกันการกระพริบใน mobile */
@@ -617,95 +843,47 @@ export default function LoginPage() {
           }
           
           input, textarea {
-            -webkit-user-select: text;
-            -khtml-user-select: text;
-            -moz-user-select: text;
-            -ms-user-select: text;
-            user-select: text;
+            font-size: 16px !important;
+            transform: none !important;
+            transition: none !important;
             -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            border-radius: 0;
-            background-color: transparent !important;
+            -webkit-tap-highlight-color: transparent;
           }
           
-          /* ปิด transition ทั้งหมดใน mobile */
-          * {
-            -webkit-transition: none !important;
-            -moz-transition: none !important;
-            -o-transition: none !important;
-            transition: none !important;
-          }
-          
-          /* ยกเว้น animation ที่จำเป็น */
-          .MuiCircularProgress-root,
-          .MuiCircularProgress-svg,
-          [class*="spin"] {
-            -webkit-transition: all 0.3s ease !important;
-            -moz-transition: all 0.3s ease !important;
-            -o-transition: all 0.3s ease !important;
-            transition: all 0.3s ease !important;
-          }
-          
-          /* ป้องกัน viewport jumping */
-          .MuiOutlinedInput-root {
-            transition: none !important;
-            transform: none !important;
-            will-change: auto !important;
-          }
-          
-          .MuiInputLabel-root {
-            transition: none !important;
-            transform: translate(14px, 16px) scale(1) !important;
-            will-change: auto !important;
-          }
-          
-          .MuiInputLabel-shrink {
-            transform: translate(14px, -9px) scale(0.75) !important;
-          }
-          
-          /* ป้องกัน flash of content */
-          .MuiOutlinedInput-notchedOutline {
-            transition: none !important;
-            will-change: auto !important;
-          }
-          
-          /* ป้องกัน focus effects */
-          .MuiOutlinedInput-root.Mui-focused {
-            transform: none !important;
-            box-shadow: none !important;
-          }
-          
-          /* ป้องกัน input zoom */
-          input:focus {
-            transform: none !important;
+          .MuiTextField-root input {
+            font-size: 16px !important;
             zoom: 1 !important;
+          }
+          
+          .MuiTextField-root input:focus {
+            font-size: 16px !important;
+            zoom: 1 !important;
+            transform: none !important;
           }
         }
         
-        /* ป้องกัน iOS Safari zoom */
-        @supports (-webkit-touch-callout: none) {
-          input[type="email"],
-          input[type="password"],
-          input[type="text"],
-          textarea {
-            font-size: 16px !important;
-            transform: none !important;
-          }
-          
-          /* ป้องกัน Safari viewport bug */
-          body {
-            position: fixed;
-            overflow: hidden;
-            width: 100%;
-            height: 100%;
-          }
-          
-          #__next {
-            height: 100%;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-          }
+        /* เอฟเฟคสำหรับปุ่ม */
+        .MuiButton-root {
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .MuiButton-root::before {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 0;
+          height: 0;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+          transform: translate(-50%, -50%);
+          transition: width 0.6s, height 0.6s;
+        }
+        
+        .MuiButton-root:active::before {
+          width: 300px;
+          height: 300px;
         }
       `}</style>
     </NoSSR>

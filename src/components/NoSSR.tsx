@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { CircularProgress, Box } from '@mui/material';
+import LoadingScreen from './LoadingScreen';
 
 interface NoSSRProps {
   children: React.ReactNode;
@@ -17,15 +18,14 @@ export default function NoSSR({ children, fallback }: NoSSRProps) {
 
   if (!mounted) {
     return fallback || (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '100vh',
-        bgcolor: '#FEFEFE',
-      }}>
-        <CircularProgress sx={{ color: '#F8A66E' }} size={40} />
-      </Box>
+      <LoadingScreen
+        step="processing"
+        showProgress={true}
+        currentStep={1}
+        totalSteps={2}
+        customMessage="กำลังเตรียมหน้าเว็บ..."
+        subtitle="โหลดข้อมูลเริ่มต้น"
+      />
     );
   }
 

@@ -74,7 +74,7 @@ export function initSocket(server: NetServer) {
     path: '/api/socket',
     addTrailingSlash: false,
     cors: {
-      origin: process.env.NEXTAUTH_URL || 'http://localhost:3000',
+      origin: process.env.NEXTAUTH_URL || 'https://corgigo.treetelu.com',
       methods: ['GET', 'POST'],
     },
   });

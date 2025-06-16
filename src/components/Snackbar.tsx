@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { colors } from '@/config/colors';
 
 export interface SnackbarProps {
   open: boolean;
@@ -49,36 +50,36 @@ const Snackbar: React.FC<SnackbarProps> = ({
   if (!show) return null;
 
   // Get colors based on type
-  const getColors = () => {
+  const getColors = (): { bg: string; icon: string; border: string } => {
     switch (type) {
       case 'success':
         return {
-          bg: '#10B981',
+          bg: colors.secondary.fresh,     // สีเขียวหลักจาก palette
           icon: '✓',
-          border: '#059669'
+          border: colors.secondary.darkFresh,  // สีเขียวเข้มสำหรับ border
         };
       case 'error':
         return {
-          bg: '#EF4444',
+          bg: colors.accent.warm,         // สีส้มจาก palette แทนสีแดง
           icon: '✕',
-          border: '#DC2626'
+          border: colors.accent.darkWarm  // สีส้มเข้มสำหรับ border
         };
       case 'info':
         return {
-          bg: '#3B82F6',
+          bg: colors.primary.golden,      // สีเหลือง/ทองจาก palette
           icon: 'ℹ',
-          border: '#2563EB'
+          border: colors.primary.darkGolden  // สีทองเข้มสำหรับ border
         };
       default:
         return {
-          bg: '#6B7280',
+          bg: colors.neutral.gray,        // สีเทาจาก palette
           icon: '•',
-          border: '#4B5563'
+          border: colors.neutral.darkGray
         };
     }
   };
 
-  const colors = getColors();
+  const colorConfig = getColors();
 
   const snackbarContent = (
     <div
@@ -99,7 +100,7 @@ const Snackbar: React.FC<SnackbarProps> = ({
       <div
         onClick={handleClose}
         style={{
-          backgroundColor: colors.bg,
+          backgroundColor: colorConfig.bg,
           color: 'white',
           padding: '12px 20px',
           borderRadius: '8px',
@@ -114,7 +115,7 @@ const Snackbar: React.FC<SnackbarProps> = ({
           maxWidth: '90vw',
           cursor: 'pointer',
           pointerEvents: 'auto',
-          border: `2px solid ${colors.border}`,
+          border: `2px solid ${colorConfig.border}`,
           transform: animate ? 'translateY(0px)' : 'translateY(-100px)',
           opacity: animate ? 1 : 0,
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -128,7 +129,7 @@ const Snackbar: React.FC<SnackbarProps> = ({
             textAlign: 'center',
           }}
         >
-          {colors.icon}
+          {colorConfig.icon}
         </span>
         <span style={{ flex: 1 }}>{message}</span>
         <span

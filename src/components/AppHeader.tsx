@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
+import { colors, themes } from '@/config/colors';
 import {
   AppBar,
   Toolbar,
@@ -19,6 +20,7 @@ import {
   TextField,
   InputAdornment,
   alpha,
+  Link,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -37,6 +39,7 @@ import {
   KeyboardArrowDown,
   ShoppingBag,
   Circle,
+  LocationOnOutlined,
 } from '@mui/icons-material';
 
 interface AppHeaderProps {
@@ -122,9 +125,9 @@ const AppHeader = ({
       position="sticky" 
       elevation={0}
       sx={{ 
-        bgcolor: '#FFFFFF',
-        borderBottom: '1px solid #F0F0F0',
-        color: '#1A1A1A',
+        bgcolor: colors.neutral.white,
+        borderBottom: `1px solid ${colors.neutral.lightGray}`,
+        color: colors.neutral.darkGray,
         zIndex: 1200,
       }}
     >
@@ -149,12 +152,11 @@ const AppHeader = ({
             sx={{
               width: 44,
               height: 44,
-              bgcolor: '#F5F5F5',
-              color: '#666',
+              bgcolor: colors.neutral.lightGray,
+              color: colors.neutral.gray,
               borderRadius: 10,
-              '&:hover': {
-                bgcolor: '#E8E8E8',
-              },
+
+              transition: 'all 0.2s ease',
             }}
           >
             <MenuIcon sx={{ fontSize: 24 }} />
@@ -172,7 +174,7 @@ const AppHeader = ({
             <Typography
               variant="caption"
             sx={{
-                color: '#F8A66E',
+                color: colors.primary.golden,
                 fontFamily: 'Prompt, sans-serif',
                 fontWeight: 600,
                 fontSize: '0.75rem',
@@ -182,7 +184,7 @@ const AppHeader = ({
                 whiteSpace: 'nowrap',
               }}
             >
-              จัดส่งไปที่
+            จัดส่งไปที่
             </Typography>
             <Box sx={{ 
               display: 'flex',
@@ -194,7 +196,7 @@ const AppHeader = ({
               <Typography
                 variant="body2"
                 sx={{
-                  color: '#666',
+                  color: colors.neutral.gray,
                   fontFamily: 'Prompt, sans-serif',
                   fontWeight: 500,
                   fontSize: '0.85rem',
@@ -209,7 +211,7 @@ const AppHeader = ({
             }}
                 title={deliveryAddress} // แสดง tooltip เมื่อ hover
               >
-                {deliveryAddress}
+                <LocationOnOutlined sx={{ fontSize: 16, mr: 0.5, color: colors.accent.warm }} /> <Link href="/profile" sx={{ color: colors.neutral.darkGray, textDecoration: 'none', '&:hover': { color: colors.primary.golden } }}>{deliveryAddress}</Link>
               </Typography>
 
             </Box>
@@ -229,13 +231,14 @@ const AppHeader = ({
             sx={{
               width: 44,
               height: 44,
-              bgcolor: '#F8F8F8',
-              color: '#666',
+              bgcolor: colors.neutral.lightGray,
+              color: colors.neutral.gray,
               borderRadius: '50%',
               position: 'relative',
               transition: 'all 0.2s ease',
               '&:hover': {
-                bgcolor: '#E8E8E8',
+                bgcolor: colors.primary.golden,
+                color: colors.neutral.white,
                 transform: 'scale(1.05)',
               },
             }}
@@ -249,8 +252,8 @@ const AppHeader = ({
                   right: -2,
                   width: 18,
                   height: 18,
-                  bgcolor: '#FF4444',
-                  color: 'white',
+                  bgcolor: colors.accent.warm,
+                  color: colors.neutral.white,
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
@@ -258,7 +261,8 @@ const AppHeader = ({
                   fontSize: '0.7rem',
                   fontFamily: 'Prompt, sans-serif',
                   fontWeight: 600,
-                  border: '2px solid white',
+                  border: `2px solid ${colors.neutral.white}`,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                 }}
               >
                 {notificationCount > 99 ? '99+' : notificationCount}
@@ -272,13 +276,13 @@ const AppHeader = ({
             sx={{
               width: 48,
               height: 48,
-              bgcolor: '#2C2C2C',
-              color: 'white',
+              bgcolor: colors.secondary.fresh,
+              color: colors.neutral.white,
               borderRadius: '50%',
               position: 'relative',
               transition: 'all 0.2s ease',
               '&:hover': {
-                bgcolor: '#1A1A1A',
+                bgcolor: colors.secondary.darkFresh,
                 transform: 'scale(1.05)',
                 },
               }}
@@ -292,8 +296,8 @@ const AppHeader = ({
                   right: -4,
                   width: 20,
                   height: 20,
-                  bgcolor: '#F8A66E',
-                  color: 'white',
+                  bgcolor: colors.primary.golden,
+                  color: colors.neutral.white,
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
@@ -301,7 +305,8 @@ const AppHeader = ({
                   fontSize: '0.75rem',
                   fontFamily: 'Prompt, sans-serif',
                   fontWeight: 600,
-                  border: '2px solid white',
+                  border: `2px solid ${colors.neutral.white}`,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                 }}
               >
                 {cartCount}
@@ -322,13 +327,13 @@ const AppHeader = ({
               mt: 1,
               borderRadius: 2,
               boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-              border: '1px solid #F0F0F0',
+              border: `1px solid ${colors.neutral.lightGray}`,
             },
           }}
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
         >
-          <Box sx={{ p: 2, borderBottom: '1px solid #F0F0F0' }}>
+          <Box sx={{ p: 2, borderBottom: `1px solid ${colors.neutral.lightGray}` }}>
             <Typography variant="h6" sx={{ fontFamily: 'Prompt, sans-serif', fontWeight: 600 }}>
               การแจ้งเตือน
             </Typography>

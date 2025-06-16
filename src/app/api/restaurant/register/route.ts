@@ -162,6 +162,21 @@ export async function POST(request: NextRequest) {
     // อัพโหลดไฟล์ถ้ามี
     const uploadedFiles = [];
     if (files && files.length > 0) {
+      // ตรวจสอบจำนวนไฟล์ที่มีอยู่แล้ว (สำหรับ POST ควรเป็น 0)
+      const existingFilesCount = await prisma.restaurantDocument.count({
+        where: { restaurantId: result.id },
+      });
+
+      // ตรวจสอบว่าไฟล์ใหม่รวมกับไฟล์เก่าจะเกิน 10 ไฟล์หรือไม่
+      const totalFilesAfterUpload = existingFilesCount + files.length;
+      if (totalFilesAfterUpload > 10) {
+        const remainingSlots = 10 - existingFilesCount;
+        return NextResponse.json(
+          { error: `สามารถอัปโหลดได้สูงสุด 10 ไฟล์ ปัจจุบันมี ${existingFilesCount} ไฟล์แล้ว สามารถเพิ่มได้อีก ${remainingSlots} ไฟล์เท่านั้น` },
+          { status: 400 }
+        );
+      }
+
       // สร้างโฟลเดอร์สำหรับร้านอาหาร
       const uploadDir = join(process.cwd(), 'public', 'uploads', 'restaurants', result.id);
       if (!existsSync(uploadDir)) {
@@ -351,6 +366,21 @@ export async function PUT(request: NextRequest) {
     // อัพโหลดไฟล์ใหม่ถ้ามี
     const uploadedFiles = [];
     if (files && files.length > 0) {
+      // ตรวจสอบจำนวนไฟล์ที่มีอยู่แล้ว
+      const existingFilesCount = await prisma.restaurantDocument.count({
+        where: { restaurantId: existingRestaurant.id },
+      });
+
+      // ตรวจสอบว่าไฟล์ใหม่รวมกับไฟล์เก่าจะเกิน 10 ไฟล์หรือไม่
+      const totalFilesAfterUpload = existingFilesCount + files.length;
+      if (totalFilesAfterUpload > 10) {
+        const remainingSlots = 10 - existingFilesCount;
+        return NextResponse.json(
+          { error: `สามารถอัปโหลดได้สูงสุด 10 ไฟล์ ปัจจุบันมี ${existingFilesCount} ไฟล์แล้ว สามารถเพิ่มได้อีก ${remainingSlots} ไฟล์เท่านั้น` },
+          { status: 400 }
+        );
+      }
+
       // สร้างโฟลเดอร์สำหรับร้านอาหาร
       const uploadDir = join(process.cwd(), 'public', 'uploads', 'restaurants', existingRestaurant.id);
       if (!existsSync(uploadDir)) {

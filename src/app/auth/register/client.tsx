@@ -27,24 +27,25 @@ import {
 } from '@mui/icons-material';
 import NoSSR from '@/components/NoSSR';
 import { useSnackbar } from '@/contexts/SnackbarContext';
+import { colors } from '@/config/colors';
 
 const theme = {
-  primary: '#382c30', // Dark brown
-  secondary: '#F35C76', // Pink
-  accent: '#F8A66E', // Orange
-  background: '#FFFFFF',
-  surface: '#FEFEFE',
-  text: '#382c30',
-  textSecondary: '#6B5B5D',
-  textLight: '#A0969A',
-  border: '#F0E6E2',
-  success: '#10B981',
+  primary: colors.secondary.fresh,      // Green สำหรับ primary
+  secondary: colors.accent.warm,        // Orange สำหรับ secondary  
+  accent: colors.primary.golden,        // Golden สำหรับ accent/CTA
+  background: colors.neutral.white,     // White background
+  surface: colors.neutral.lightGray,    // Light gray surface
+  text: colors.neutral.darkGray,        // Dark gray text
+  textSecondary: colors.neutral.gray,   // Gray secondary text
+  textLight: colors.neutral.gray,       // Gray light text
+  border: colors.neutral.lightGray,     // Light gray borders
+  success: colors.secondary.fresh,      // Green for success
 };
 
 const StyledTextField = styled(TextField)(() => ({
   '& .MuiOutlinedInput-root': {
     borderRadius: '16px',
-    backgroundColor: theme.background,
+    backgroundColor: colors.neutral.lightGray,
     fontSize: '1rem',
     height: '56px',
     position: 'relative',
@@ -57,7 +58,7 @@ const StyledTextField = styled(TextField)(() => ({
       backfaceVisibility: 'hidden',
     },
     '& .MuiOutlinedInput-notchedOutline': {
-      borderColor: theme.border,
+      borderColor: colors.neutral.lightGray,
       borderWidth: '2px',
       transition: 'border-color 0.2s ease',
       '@media (max-width: 768px)': {
@@ -65,14 +66,14 @@ const StyledTextField = styled(TextField)(() => ({
       },
     },
     '&:hover .MuiOutlinedInput-notchedOutline': {
-      borderColor: theme.accent,
+      borderColor: colors.primary.golden,
     },
     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-      borderColor: theme.accent,
+      borderColor: colors.primary.golden,
       borderWidth: '2px',
     },
     '&.Mui-focused': {
-      backgroundColor: theme.background,
+      backgroundColor: colors.neutral.lightGray,
       transform: 'none !important',
       '@media (max-width: 768px)': {
         transform: 'none !important',
@@ -82,7 +83,7 @@ const StyledTextField = styled(TextField)(() => ({
   },
   '& .MuiInputLabel-root': {
     fontFamily: '"Prompt", sans-serif',
-    color: theme.textSecondary,
+    color: colors.neutral.gray,
     fontSize: '1rem',
     transform: 'translate(14px, 16px) scale(1)',
     transition: 'all 0.2s ease',
@@ -94,7 +95,7 @@ const StyledTextField = styled(TextField)(() => ({
     },
     '&.MuiInputLabel-shrink': {
       transform: 'translate(14px, -9px) scale(0.75)',
-      backgroundColor: theme.background,
+      backgroundColor: colors.neutral.lightGray,
       padding: '0 8px',
       '@media (max-width: 768px)': {
         transform: 'translate(14px, -9px) scale(0.75) !important',
@@ -102,7 +103,7 @@ const StyledTextField = styled(TextField)(() => ({
       },
     },
     '&.Mui-focused': {
-      color: theme.accent,
+      color: colors.primary.golden,
       '@media (max-width: 768px)': {
         transition: 'none !important',
       },
@@ -110,6 +111,7 @@ const StyledTextField = styled(TextField)(() => ({
   },
   '& .MuiOutlinedInput-input': {
     padding: '16px 14px',
+    color: colors.neutral.darkGray,
     '@media (max-width: 768px)': {
       fontSize: '16px !important',
       transition: 'none !important',
@@ -127,6 +129,10 @@ const StyledTextField = styled(TextField)(() => ({
         zoom: '1 !important',
       },
     },
+  },
+  '& .MuiFormHelperText-root': {
+    color: colors.accent.warm,
+    fontFamily: '"Prompt", sans-serif',
   },
 }));
 
@@ -452,20 +458,20 @@ export default function RegisterClient() {
           <IconButton
             onClick={handleBack}
             sx={{
-              bgcolor: theme.background,
+              bgcolor: colors.neutral.white,
               width: 48,
               height: 48,
-              border: `1px solid ${theme.border}`,
-              boxShadow: `0 4px 12px ${theme.accent}20`,
+              border: `1px solid ${colors.neutral.lightGray}`,
+              boxShadow: `0 4px 12px ${colors.primary.golden}20`,
               '&:hover': { 
-                bgcolor: theme.surface,
+                bgcolor: colors.neutral.lightGray,
                 transform: 'translateY(-1px)',
-                boxShadow: `0 6px 16px ${theme.accent}30`,
+                boxShadow: `0 6px 16px ${colors.primary.golden}30`,
               },
               transition: 'all 0.2s ease',
             }}
           >
-            <ArrowBackIcon sx={{ fontSize: 20, color: theme.textSecondary }} />
+            <ArrowBackIcon sx={{ fontSize: 20, color: colors.neutral.gray }} />
           </IconButton>
         </Box>
 
@@ -529,9 +535,9 @@ export default function RegisterClient() {
                     mb: 3,
                     borderRadius: '16px',
                     border: 'none',
-                    bgcolor: '#FFF5F5',
-                    color: theme.accent,
-                    boxShadow: `0 4px 12px ${theme.accent}15`,
+                    bgcolor: `${colors.accent.warm}15`,
+                    color: colors.accent.warm,
+                    boxShadow: `0 4px 12px ${colors.accent.warm}15`,
                   }}
                 >
                   {errors.submit}
@@ -550,7 +556,7 @@ export default function RegisterClient() {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Person sx={{ color: theme.textLight, fontSize: 20 }} />
+                        <Person sx={{ color: colors.neutral.gray, fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -573,7 +579,7 @@ export default function RegisterClient() {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Person sx={{ color: theme.textLight, fontSize: 20 }} />
+                        <Person sx={{ color: colors.neutral.gray, fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -597,7 +603,7 @@ export default function RegisterClient() {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Email sx={{ color: theme.textLight, fontSize: 20 }} />
+                        <Email sx={{ color: colors.neutral.gray, fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -621,7 +627,7 @@ export default function RegisterClient() {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Phone sx={{ color: theme.textLight, fontSize: 20 }} />
+                        <Phone sx={{ color: colors.neutral.gray, fontSize: 20 }} />
                       </InputAdornment>
                     ),
                   }}
@@ -645,7 +651,7 @@ export default function RegisterClient() {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Lock sx={{ color: theme.textLight, fontSize: 20 }} />
+                        <Lock sx={{ color: colors.neutral.gray, fontSize: 20 }} />
                       </InputAdornment>
                     ),
                     endAdornment: (
@@ -653,7 +659,7 @@ export default function RegisterClient() {
                         <IconButton
                           onClick={() => setShowPassword(!showPassword)}
                           edge="end"
-                          sx={{ color: theme.textLight }}
+                          sx={{ color: colors.neutral.gray }}
                         >
                           {showPassword ? <VisibilityOff /> : <Visibility />}
                         </IconButton>
@@ -680,7 +686,7 @@ export default function RegisterClient() {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Lock sx={{ color: theme.textLight, fontSize: 20 }} />
+                        <Lock sx={{ color: colors.neutral.gray, fontSize: 20 }} />
                       </InputAdornment>
                     ),
                     endAdornment: (
@@ -688,7 +694,7 @@ export default function RegisterClient() {
                         <IconButton
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                           edge="end"
-                          sx={{ color: theme.textLight }}
+                          sx={{ color: colors.neutral.gray }}
                         >
                           {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                         </IconButton>
@@ -709,15 +715,15 @@ export default function RegisterClient() {
                   variant="contained"
                   disabled={loading}
                   sx={{
-                    bgcolor: theme.accent,
-                    color: '#fff',
+                    bgcolor: colors.primary.golden,
+                    color: colors.neutral.white,
                     borderRadius: '16px',
                     py: 2,
                     fontFamily: '"Prompt", sans-serif',
                     fontWeight: 600,
                     fontSize: '1.1rem',
                     textTransform: 'none',
-                    boxShadow: `0 8px 32px ${theme.accent}30`,
+                    boxShadow: `0 8px 32px ${colors.primary.golden}30`,
                     mb: 3,
                     position: 'relative',
                     overflow: 'hidden',
@@ -732,16 +738,16 @@ export default function RegisterClient() {
                       transition: 'left 0.5s',
                     },
                     '&:hover': {
-                      bgcolor: theme.accent,
-                      boxShadow: `0 12px 40px ${theme.accent}40`,
+                      bgcolor: colors.primary.darkGolden,
+                      boxShadow: `0 12px 40px ${colors.primary.golden}40`,
                       transform: 'translateY(-2px)',
                       '&::before': {
                         left: '100%',
                       },
                     },
                     '&:disabled': {
-                      bgcolor: theme.border,
-                      color: theme.textLight,
+                      bgcolor: colors.neutral.lightGray,
+                      color: colors.neutral.gray,
                       transform: 'none',
                       boxShadow: 'none',
                     },
@@ -764,8 +770,11 @@ export default function RegisterClient() {
                 <Box textAlign="center">
                   <Typography
                     variant="body1"
-                    color={theme.textSecondary}
-                    sx={{ fontFamily: '"Prompt", sans-serif', mb: 1 }}
+                    sx={{ 
+                      fontFamily: '"Prompt", sans-serif', 
+                      color: colors.neutral.gray,
+                      mb: 1 
+                    }}
                   >
                     มีบัญชีแล้ว?
                   </Typography>
@@ -774,8 +783,8 @@ export default function RegisterClient() {
                     variant="outlined"
                     fullWidth
                     sx={{
-                      borderColor: theme.secondary,
-                      color: theme.secondary,
+                      borderColor: colors.secondary.fresh,
+                      color: colors.secondary.fresh,
                       borderRadius: '16px',
                       py: 1.5,
                       textTransform: 'none',
@@ -784,11 +793,11 @@ export default function RegisterClient() {
                       fontSize: '1rem',
                       marginBottom: 'max(1rem, env(safe-area-inset-bottom) + 0.5rem)',
                       '&:hover': {
-                        borderColor: theme.secondary,
-                        color: '#fff',
-                        bgcolor: theme.secondary,
+                        borderColor: colors.secondary.darkFresh,
+                        color: colors.neutral.white,
+                        bgcolor: colors.secondary.fresh,
                         transform: 'translateY(-1px)',
-                        boxShadow: `0 4px 12px ${theme.secondary}30`,
+                        boxShadow: `0 4px 12px ${colors.secondary.fresh}30`,
                       },
                       transition: 'all 0.2s ease',
                     }}

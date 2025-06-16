@@ -28,6 +28,8 @@ import {
 import RestaurantStatusButton from '@/components/RestaurantStatusButton';
 import { useSnackbar } from '@/contexts/SnackbarContext';
 import FooterNavbar from '@/components/FooterNavbar';
+import LoadingScreen from '@/components/LoadingScreen';
+import { isLineUser } from '@/utils/userUtils';
 
 
 // Utility function to resize image
@@ -85,6 +87,9 @@ export default function SimpleProfileClient() {
   });
   const [currentLocation, setCurrentLocation] = useState<{lat: number; lng: number} | null>(null);
   const [cartCount, setCartCount] = useState(0);
+  
+  // ตรวจสอบว่าเป็น LINE user หรือไม่
+  const isUserFromLine = isLineUser(session?.user?.email);
 
   // โหลด cart count จาก localStorage
   useEffect(() => {
@@ -178,27 +183,14 @@ export default function SimpleProfileClient() {
 
   if (isInitialLoading) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: 'column',
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '100vh',
-        bgcolor: '#F5F5F5',
-        gap: 2,
-      }}>
-        <CircularProgress sx={{ color: '#F8A66E' }} size={40} />
-        <Typography 
-          variant="body2" 
-          sx={{ 
-            fontFamily: 'Prompt, sans-serif',
-            color: '#666',
-            fontSize: '0.9rem',
-          }}
-        >
-          กำลังโหลดข้อมูลโปรไฟล์...
-        </Typography>
-      </Box>
+             <LoadingScreen
+         step={status === 'loading' ? 'auth' : 'data'}
+         showProgress={true}
+         currentStep={status === 'loading' ? 1 : 2}
+         totalSteps={2}
+         customMessage={status === 'loading' ? undefined : 'กำลังโหลดข้อมูลโปรไฟล์...'}
+         subtitle="เตรียมข้อมูลส่วนตัวของคุณ"
+       />
     );
   }
 
@@ -750,7 +742,8 @@ export default function SimpleProfileClient() {
             </Box>
           </Box>
 
-          {/* Email */}
+          {/* Email - ซ่อนสำหรับ LINE users */}
+          {!isUserFromLine && (
           <Box sx={{ 
             display: 'flex', 
             alignItems: 'center', 
@@ -842,6 +835,7 @@ export default function SimpleProfileClient() {
               )}
             </Box>
           </Box>
+          )}
 
           {/* Phone Number */}
           <Box sx={{ 

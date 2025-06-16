@@ -55,10 +55,14 @@ model User {
   id          String    @id @default(cuid())
   email       String    @unique
   phone       String?   @unique
-  password    String
+  password    String?   // ทำให้ optional สำหรับ Line login
   firstName   String
   lastName    String
   avatar      String?
+  
+  // Social login fields
+  lineId      String?   @unique // LINE User ID
+  googleId    String?   @unique // Google ID (สำหรับอนาคต)
   
   // Location fields for delivery
   latitude    Float?    // ตำแหน่ง lat สำหรับส่งอาหาร
@@ -68,8 +72,8 @@ model User {
   primaryRole UserRole  @default(CUSTOMER) // หลัก role ที่ใช้ login
   
   status      UserStatus @default(ACTIVE)
-  createdAt   DateTime
-  updatedAt   DateTime
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   // Relations - ทุกคนสามารถมีได้ทุก role
   customer    Customer?
@@ -87,7 +91,7 @@ model UserRoles {
   role   UserRole
   user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  createdAt DateTime
+  createdAt DateTime @default(now())
   
   @@unique([userId, role])
   @@map("user_roles")
@@ -121,8 +125,8 @@ model CustomerAddress {
   
   orders      Order[]
   
-  createdAt   DateTime
-  updatedAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
   @@map("customer_addresses")
 }

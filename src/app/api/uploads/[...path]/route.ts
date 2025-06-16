@@ -5,13 +5,15 @@ import { existsSync } from 'fs';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const filePath = join(process.cwd(), 'public', 'uploads', ...params.path);
+    // Await params ตาม Next.js 15 requirement
+    const resolvedParams = await params;
+    const filePath = join(process.cwd(), 'public', 'uploads', ...resolvedParams.path);
     
     console.log('🔍 Avatar request:', {
-      requestedPath: params.path,
+      requestedPath: resolvedParams.path,
       fullPath: filePath,
       exists: existsSync(filePath)
     });
@@ -24,7 +26,7 @@ export async function GET(
     const fileBuffer = await readFile(filePath);
     
     // Determine content type based on file extension
-    const extension = params.path[params.path.length - 1].split('.').pop()?.toLowerCase();
+    const extension = resolvedParams.path[resolvedParams.path.length - 1].split('.').pop()?.toLowerCase();
     let contentType = 'application/octet-stream';
     
     switch (extension) {

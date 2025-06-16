@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { usePathname } from 'next/navigation';
+import { colors } from '@/config/colors';
 import {
   BottomNavigation,
   BottomNavigationAction,
@@ -109,7 +110,7 @@ const FooterNavbar = ({ cartCount = 0 }: FooterNavbarProps) => {
             flexDirection: 'column',
             borderRadius: 0,
             '&.Mui-selected': {
-              color: '#F8A66E',
+              color: colors.primary.golden,
               backgroundColor: 'transparent !important',
               boxShadow: 'none !important',
               '& .MuiBottomNavigationAction-label': {
@@ -117,14 +118,14 @@ const FooterNavbar = ({ cartCount = 0 }: FooterNavbarProps) => {
                 fontWeight: 500,
                 fontFamily: 'Prompt, sans-serif',
                 marginTop: 0.5,
-                color: '#F8A66E',
+                color: colors.primary.golden,
                 display: 'block !important',
                 opacity: '1 !important',
                 letterSpacing: '-0.01em',
               },
             },
             '&:hover:not(.Mui-selected)': {
-              color: '#F8A66E',
+              color: colors.primary.darkGolden,
               opacity: 0.7,
               backgroundColor: 'transparent !important',
               boxShadow: 'none !important',
