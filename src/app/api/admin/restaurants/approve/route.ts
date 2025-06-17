@@ -26,14 +26,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['APPROVED', 'REJECTED'].includes(action)) {
+    // แปลง action จาก frontend เป็นรูปแบบที่ database ต้องการ
+    let dbAction: string;
+    if (action === 'approve') {
+      dbAction = 'APPROVED';
+    } else if (action === 'reject') {
+      dbAction = 'REJECTED';
+    } else {
       return NextResponse.json(
         { error: 'การดำเนินการไม่ถูกต้อง' },
         { status: 400 }
       );
     }
 
-    if (action === 'REJECTED' && !rejectReason?.trim()) {
+    if (action === 'reject' && !rejectReason?.trim()) {
       return NextResponse.json(
         { error: 'กรุณาระบุเหตุผลในการปฏิเสธ' },
         { status: 400 }
@@ -62,10 +68,10 @@ export async function POST(request: NextRequest) {
 
     // อัพเดทสถานะร้านอาหาร
     const updateData: any = {
-      status: action,
+      status: dbAction,
     };
 
-    if (action === 'APPROVED') {
+    if (dbAction === 'APPROVED') {
       updateData.approvedAt = getThailandNow();
       updateData.approvedBy = session.user.id;
       updateData.isOpen = true; // เปิดร้านเมื่ออนุมัติ
@@ -86,25 +92,28 @@ export async function POST(request: NextRequest) {
     });
 
     // สร้างการแจ้งเตือนให้เจ้าของร้าน
+    const now = new Date();
     await prisma.notification.create({
       data: {
         userId: restaurant.userId,
-        title: action === 'APPROVED' ? 'ร้านของคุณได้รับการอนุมัติ!' : 'ร้านของคุณไม่ผ่านการตรวจสอบ',
-        message: action === 'APPROVED' 
+        title: dbAction === 'APPROVED' ? 'ร้านของคุณได้รับการอนุมัติ!' : 'ร้านของคุณไม่ผ่านการตรวจสอบ',
+        message: dbAction === 'APPROVED' 
           ? `ยินดีด้วย! ร้าน "${restaurant.name}" ได้รับการอนุมัติแล้ว สามารถเริ่มรับออเดอร์ได้เลย`
           : `ขออภัย ร้าน "${restaurant.name}" ไม่ผ่านการตรวจสอบ เหตุผล: ${rejectReason}`,
         type: 'RESTAURANT_APPROVAL',
         data: {
           restaurantId: restaurant.id,
-          status: action,
-          rejectReason: action === 'REJECTED' ? rejectReason : null
-        }
+          status: dbAction,
+          ...(dbAction === 'REJECTED' && rejectReason && { rejectReason })
+        } as any,
+        createdAt: now,
+        updatedAt: now
       }
     });
 
     return NextResponse.json({
       success: true,
-      message: action === 'APPROVED' ? 'อนุมัติร้านอาหารสำเร็จ' : 'ปฏิเสธร้านอาหารสำเร็จ',
+      message: dbAction === 'APPROVED' ? 'อนุมัติร้านอาหารสำเร็จ' : 'ปฏิเสธร้านอาหารสำเร็จ',
       restaurant: {
         id: updatedRestaurant.id,
         name: updatedRestaurant.name,

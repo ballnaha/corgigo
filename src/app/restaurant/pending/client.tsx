@@ -33,6 +33,7 @@ import {
   LocationOn,
   Business,
 } from '@mui/icons-material';
+import { formatThaiDateTime } from '@/lib/timezone';
 import AppLayout from '@/components/AppLayout';
 import LoadingScreen from '@/components/LoadingScreen';
 
@@ -77,22 +78,14 @@ export default function RestaurantPendingClient() {
           
           // ใช้เวลาไทยที่ส่งมาจาก API
           if (result.restaurant.submittedAtThai) {
-            // แปลงจาก yyyy-MM-dd HH:mm:ss เป็นรูปแบบไทย
-            const [datePart, timePart] = result.restaurant.submittedAtThai.split(' ');
-            const [year, month, day] = datePart.split('-');
-            const [hour, minute] = timePart.split(':');
-            
-            const thaiDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
-            const formatted = thaiDate.toLocaleDateString('th-TH', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            });
-            setFormattedDate(formatted);
+            setFormattedDate(formatThaiDateTime(result.restaurant.submittedAtThai));
           
-          // คำนวณเวลาที่ผ่านไปและเวลาที่เหลือ
+          // คำนวณเวลาที่ผ่านไปและเวลาที่เหลือ (ใช้เดิม)
+          const [datePart, timePart] = result.restaurant.submittedAtThai.split(' ');
+          const [year, month, day] = datePart.split('-');
+          const [hour, minute] = timePart.split(':');
+          const thaiDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
+          
           const now = new Date();
           const diffTime = Math.abs(now.getTime() - thaiDate.getTime());
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -118,37 +111,13 @@ export default function RestaurantPendingClient() {
         
         // Format approved date - ใช้เวลาไทยจาก API
         if (result.restaurant.approvedAtThai) {
-          const [datePart, timePart] = result.restaurant.approvedAtThai.split(' ');
-          const [year, month, day] = datePart.split('-');
-          const [hour, minute] = timePart.split(':');
-          
-          const thaiApprovedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
-          const formattedApproved = thaiApprovedDate.toLocaleDateString('th-TH', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          });
-          setFormattedApprovedDate(formattedApproved);
+          setFormattedApprovedDate(formatThaiDateTime(result.restaurant.approvedAtThai));
         }
         
         // Format rejected date - ใช้เวลาไทยจาก API
         if (result.restaurant.rejectedAtThai) {
-          const [datePart, timePart] = result.restaurant.rejectedAtThai.split(' ');
-          const [year, month, day] = datePart.split('-');
-          const [hour, minute] = timePart.split(':');
-          
-          const thaiRejectedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
-          const formattedRejected = thaiRejectedDate.toLocaleDateString('th-TH', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          });
-          setFormattedRejectedDate(formattedRejected);
-          }
+          setFormattedRejectedDate(formatThaiDateTime(result.restaurant.rejectedAtThai));
+        }
           
           // ถ้าได้รับการอนุมัติแล้ว ให้ไปหน้าร้านอาหาร
           if (result.restaurant.status === 'APPROVED') {

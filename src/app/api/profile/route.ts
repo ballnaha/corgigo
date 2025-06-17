@@ -116,6 +116,8 @@ export async function PUT(request: NextRequest) {
         update: {},
         create: { 
           userId: session.user.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
         select: { id: true }
       });

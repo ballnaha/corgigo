@@ -45,14 +45,14 @@ export async function GET(request: NextRequest) {
       email: restaurant.user.email,
       address: restaurant.address,
       description: restaurant.description || 'ไม่มีรายละเอียด',
-      submittedAt: restaurant.createdAt.toISOString(),
+      submittedAt: restaurant.createdAt,
       documents: restaurant.restaurantDocuments.map(doc => ({
         id: doc.id,
         name: doc.originalName,
         size: doc.fileSize,
         type: doc.fileType,
         url: doc.filePath,
-        createdAt: doc.createdAt.toISOString(),
+        createdAt: doc.createdAt,
       }))
     }));
 

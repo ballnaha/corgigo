@@ -31,12 +31,27 @@ export default withAuth(
         return NextResponse.redirect(new URL('/unauthorized', req.url));
       }
 
-      // Restaurant routes (except register page)
-      if (path.startsWith('/restaurant') && 
-          path !== '/restaurant/register' && 
-          path !== '/restaurant/pending' &&
-          userRole !== 'RESTAURANT' && !userRoles.includes('RESTAURANT')) {
-        return NextResponse.redirect(new URL('/unauthorized', req.url));
+      // Restaurant routes - Enhanced protection
+      if (path.startsWith('/restaurant')) {
+        // อนุญาตให้ทุกคนเข้าหน้า register (สำหรับ customer ที่อยากสมัครเปิดร้าน)
+        if (path === '/restaurant/register') {
+          return NextResponse.next();
+        }
+
+        // สำหรับหน้าอื่นๆ ต้องมี RESTAURANT role
+        if (userRole !== 'RESTAURANT' && !userRoles.includes('RESTAURANT')) {
+          // ถ้าไม่มี restaurant role และไม่ใช่หน้า register ให้ redirect ไป register
+          return NextResponse.redirect(new URL('/restaurant/register', req.url));
+        }
+
+        // อนุญาตให้เข้าหน้า pending เสมอสำหรับ restaurant owners
+        if (path === '/restaurant/pending') {
+          return NextResponse.next();
+        }
+
+        // สำหรับหน้าอื่นๆ ใน /restaurant จะต้องมีการตรวจสอบสถานะใน client component
+        // ที่ RestaurantClientLayout แล้ว ดังนั้นให้ผ่านไปได้
+        // แต่ client component จะ redirect ไปหน้า pending หากสถานะไม่ใช่ APPROVED
       }
 
       // Customer routes (most pages are accessible to customers)

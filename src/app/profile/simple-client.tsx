@@ -151,23 +151,25 @@ export default function SimpleProfileClient() {
             }
           } else {
             // ถ้าไม่มีข้อมูลใน API ให้ใช้ข้อมูลจาก session
+            console.log('⚠️ API response not OK, using session data. Status:', response.status);
             setProfileData({
               firstName: session.user.name?.split(' ')[0] || '',
               lastName: session.user.name?.split(' ')[1] || '',
               email: session.user.email || '',
-              phone: '',
+              phone: '', // Session ไม่มีข้อมูลเบอร์โทร
               address: '',
             });
             setAvatarPreview(session.user.avatar || null);
           }
         } catch (error) {
           console.error('Error loading profile:', error);
+          console.log('⚠️ API call failed, using session data as fallback');
           // ใช้ข้อมูลจาก session เป็น fallback
           setProfileData({
             firstName: session.user.name?.split(' ')[0] || '',
             lastName: session.user.name?.split(' ')[1] || '',
             email: session.user.email || '',
-            phone: '',
+            phone: '', // Session ไม่มีข้อมูลเบอร์โทร
             address: '',
           });
           setAvatarPreview(session.user.avatar || null);

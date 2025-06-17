@@ -30,9 +30,20 @@ export default function RestaurantStatusButton({ session, router }: RestaurantSt
               return;
             }
           }
+        } else if (response.status === 404) {
+          // ไม่พบข้อมูลร้านอาหาร = ยังไม่ได้สมัคร
+          setRestaurantStatus(null);
+        } else if (response.status === 401) {
+          // ไม่ได้รับการยืนยันตัวตน = ต้อง login ก่อน
+          console.log('⚠️ Authentication required for restaurant status');
+          setRestaurantStatus(null);
+        } else {
+          console.error('API error:', response.status);
+          setRestaurantStatus(null);
         }
       } catch (error) {
         console.error('Error loading restaurant status:', error);
+        setRestaurantStatus(null);
       } finally {
         setLoading(false);
       }
