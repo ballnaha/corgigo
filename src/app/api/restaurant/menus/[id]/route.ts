@@ -106,7 +106,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, description, price, categoryId, image, isAvailable } = body;
+    const { name, description, price, originalPrice, categoryId, image, isAvailable } = body;
 
     // Validation
     if (name && name.trim() === '') {
@@ -155,6 +155,7 @@ export async function PUT(
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (price !== undefined) updateData.price = parseFloat(price);
+    if (originalPrice !== undefined) updateData.originalPrice = originalPrice ? parseFloat(originalPrice) : null;
     if (categoryId !== undefined) updateData.categoryId = categoryId || null;
     if (image !== undefined) updateData.image = image || null;
     if (isAvailable !== undefined) updateData.isAvailable = isAvailable;

@@ -157,26 +157,48 @@ export default function RestaurantDashboard() {
     <Box sx={{ fontFamily: vristoTheme.font.family }}>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
-        <Typography 
-          variant="h4" 
-          sx={{ 
-            fontWeight: 'bold', 
-            color: vristoTheme.text.primary,
-            fontFamily: vristoTheme.font.family,
-            mb: 1,
-          }}
-        >
-          แดชบอร์ดร้านอาหาร
-        </Typography>
-        <Typography 
-          variant="body1" 
-          sx={{ 
-            color: vristoTheme.text.secondary,
-            fontFamily: vristoTheme.font.family,
-          }}
-        >
-          ภาพรวมการขายและการจัดการร้านของคุณ
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+          <Box>
+            <Typography 
+              variant="h4" 
+              sx={{ 
+                fontWeight: 'bold', 
+                color: vristoTheme.text.primary,
+                fontFamily: vristoTheme.font.family,
+                mb: 1,
+              }}
+            >
+              แดชบอร์ดร้านอาหาร
+            </Typography>
+            <Typography 
+              variant="body1" 
+              sx={{ 
+                color: vristoTheme.text.secondary,
+                fontFamily: vristoTheme.font.family,
+              }}
+            >
+              ภาพรวมการขายและการจัดการร้านของคุณ
+            </Typography>
+          </Box>
+          
+          {/* ปุ่มไปหน้าโปรไฟล์ */}
+          <Button
+            variant="outlined"
+            startIcon={<Restaurant />}
+            href="/restaurant/settings/profile"
+            sx={{
+              borderRadius: 2,
+              borderColor: vristoTheme.primary,
+              color: vristoTheme.primary,
+              backgroundColor: 'transparent',
+              '&:hover': {
+                backgroundColor: `${vristoTheme.primary}10`,
+              },
+            }}
+          >
+            จัดการข้อมูลส่วนตัว
+          </Button>
+        </Box>
       </Box>
 
       {/* Stats Cards */}

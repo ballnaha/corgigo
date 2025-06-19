@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
+import { 
   Box,
   Typography,
   Card,
@@ -21,9 +21,8 @@ import {
   Stack,
   useTheme,
   useMediaQuery,
-  Button,
-  Grid,
-} from '@mui/material';
+  Button, Box, 
+ } from '@mui/material';
 import {
   Search,
   Edit,
@@ -154,8 +153,8 @@ export default function PromotionsPage() {
       </Box>
 
       {/* Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+      <Box sx={ display: 'grid', gap: 3, { mb: 4  }>
+        <Box>
           <Card sx={{ 
             p: 2, 
             boxShadow: vristoTheme.shadow.card,
@@ -175,9 +174,9 @@ export default function PromotionsPage() {
               <LocalOffer sx={{ fontSize: 32, opacity: 0.8 }} />
             </Box>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Box>
           <Card sx={{ 
             p: 2, 
             boxShadow: vristoTheme.shadow.card,
@@ -197,9 +196,9 @@ export default function PromotionsPage() {
               <TrendingUp sx={{ fontSize: 32, opacity: 0.8 }} />
             </Box>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Box>
           <Card sx={{ 
             p: 2, 
             boxShadow: vristoTheme.shadow.card,
@@ -219,9 +218,9 @@ export default function PromotionsPage() {
               <Percent sx={{ fontSize: 32, opacity: 0.8 }} />
             </Box>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Box>
           <Card sx={{ 
             p: 2, 
             boxShadow: vristoTheme.shadow.card,
@@ -241,8 +240,8 @@ export default function PromotionsPage() {
               <Event sx={{ fontSize: 32, opacity: 0.8 }} />
             </Box>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       <Card sx={{ boxShadow: vristoTheme.shadow.card, borderRadius: 2 }}>
         <CardContent>
@@ -305,20 +304,20 @@ export default function PromotionsPage() {
                       <Typography variant="body2">{promotion.type}</Typography>
                     </Box>
                     
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
+                    <Box sx={ display: 'grid', gap: 2 }>
+                      <Box>
                         <Typography variant="caption" color="text.secondary" fontWeight="600">ส่วนลด</Typography>
                         <Typography variant="body2" fontWeight="600" color="primary">
                           {promotion.discount}%
                         </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
+                      </Box>
+                      <Box>
                         <Typography variant="caption" color="text.secondary" fontWeight="600">ใช้งานแล้ว</Typography>
                         <Typography variant="body2" fontWeight="600" color="success">
                           {promotion.usageCount}/{promotion.maxUsage}
                         </Typography>
-                      </Grid>
-                    </Grid>
+                      </Box>
+                    </Box>
 
                     <Box>
                       <Typography variant="caption" color="text.secondary" fontWeight="600">ระยะเวลา</Typography>

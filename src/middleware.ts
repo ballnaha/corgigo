@@ -5,6 +5,39 @@ export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
+    
+    // === MULTI-TENANT DOMAIN ROUTING ===
+    const hostname = req.headers.get('host') || '';
+    const url = req.nextUrl.clone();
+    
+    // Extract subdomain (works for both localhost:3000 and subdomain.corgigo.com)
+    let subdomain = '';
+    if (hostname.includes('.')) {
+      subdomain = hostname.split('.')[0];
+    }
+    
+    // Handle admin subdomain
+    if (subdomain === 'admin' || path.startsWith('/admin')) {
+      // Admin panel access - require ADMIN role
+      if (token && (token.primaryRole === 'ADMIN' || (token.roles && token.roles.includes('ADMIN')))) {
+        if (subdomain === 'admin' && !path.startsWith('/admin')) {
+          url.pathname = `/admin${path}`;
+          return NextResponse.rewrite(url);
+        }
+        return NextResponse.next();
+      } else {
+        return NextResponse.redirect(new URL('/auth/login', req.url));
+      }
+    }
+    
+    // Handle restaurant subdomains (e.g., lacasa.corgigo.com)
+    if (subdomain && subdomain !== 'www' && subdomain !== 'corgigo' && !hostname.includes('localhost')) {
+      // This is a restaurant subdomain - route to restaurant-specific pages
+      if (!path.startsWith('/restaurant/tenant/')) {
+        url.pathname = `/restaurant/tenant/${subdomain}${path}`;
+        return NextResponse.rewrite(url);
+      }
+    }
 
     // Let API routes pass through
     if (path.startsWith('/api/')) {

@@ -50,6 +50,76 @@ enum RestaurantStatus {
   SUSPENDED
 }
 
+// Meal Plan System Enums
+enum MealPlanType {
+  KETO
+  CLEAN_EATING
+  LOW_CARB
+  VEGAN
+  VEGETARIAN
+  PALEO
+  MEDITERRANEAN
+  WEIGHT_LOSS
+  MUSCLE_GAIN
+  BALANCED
+}
+
+enum MealPlanDuration {
+  SEVEN_DAYS
+  FOURTEEN_DAYS
+  THIRTY_DAYS
+}
+
+enum MealPlanStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+  DRINK
+}
+
+enum DietaryRestriction {
+  GLUTEN_FREE
+  DAIRY_FREE
+  NUT_FREE
+  SOY_FREE
+  SHELLFISH_FREE
+  EGG_FREE
+  VEGETARIAN
+  VEGAN
+  HALAL
+  KOSHER
+}
+
+// Multi-tenant system enums
+enum DomainType {
+  SUBDOMAIN
+  CUSTOM
+}
+
+enum SuspensionReason {
+  POLICY_VIOLATION
+  PAYMENT_ISSUES
+  QUALITY_CONCERNS
+  CUSTOMER_COMPLAINTS
+  LEGAL_ISSUES
+  ADMIN_REQUEST
+  OTHER
+}
+
 // Models
 model User {
   id          String    @id @default(cuid())
@@ -106,8 +176,12 @@ model Customer {
   addresses CustomerAddress[]
   orders    Order[]
   
-  createdAt DateTime
-  updatedAt DateTime
+  // Health Profile fields for meal plans
+  healthProfile HealthProfile?
+  mealPlanSubscriptions MealPlanSubscription[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   
   @@map("customers")
 }
@@ -124,6 +198,7 @@ model CustomerAddress {
   isDefault   Boolean  @default(false)
   
   orders      Order[]
+  mealPlanDeliveries MealPlanDelivery[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -150,9 +225,10 @@ model Rider {
   
   // Relations
   orders        Order[]
+  mealPlanDeliveries MealPlanDelivery[]
   
-  createdAt     DateTime
-  updatedAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   
   @@map("riders")
 }
@@ -170,11 +246,36 @@ model Restaurant {
   longitude   Float?
   phone       String?
   image       String?
+  avatarUrl   String?  // รูป Avatar ร้าน
+  coverUrl    String?  // รูป Cover ร้าน
   rating      Float    @default(5.0)
   isOpen      Boolean  @default(true)
   openTime    String?  // HH:mm format
   closeTime   String?  // HH:mm format
   status      RestaurantStatus @default(PENDING)
+  
+  // Multi-tenant system fields
+  subdomain         String?   @unique  // "lacasa", "sushizen" - for xxx.corgigo.com
+  customDomain      String?   @unique  // "restaurant.com" (optional custom domain)
+  isActive          Boolean   @default(true)   // ร้านเปิดใช้งานหรือไม่
+  isSuspended       Boolean   @default(false)  // ร้านถูกระงับหรือไม่
+  suspendedAt       DateTime? // วันที่ระงับ
+  suspendedBy       String?   // Admin user ID ที่ระงับ
+  suspendReason     String?   // เหตุผลการระงับ
+  
+  // Restaurant branding/theme
+  themePrimaryColor   String  @default("#10B981")   // สีหลักของร้าน
+  themeSecondaryColor String  @default("#F59E0B")   // สีรองของร้าน
+  themeAccentColor    String  @default("#EF4444")   // สีเสริม
+  logoUrl             String? // โลโก้ของร้าน (แยกจาก avatarUrl)
+  bannerUrl           String? // แบนเนอร์หน้าร้าน
+  
+  // Name change request fields
+  pendingName           String?   // ชื่อใหม่ที่รออนุมัติ
+  nameChangeRequestedAt DateTime? // วันที่ขอเปลี่ยนชื่อ
+  nameApprovedAt        DateTime? // วันที่อนุมัติชื่อใหม่
+  nameRejectedAt        DateTime? // วันที่ปฏิเสธชื่อใหม่
+  nameRejectReason      String?   // เหตุผลที่ปฏิเสธชื่อใหม่
   
   // Approval fields
   approvedAt  DateTime?
@@ -188,9 +289,11 @@ model Restaurant {
   menuItems   MenuItem[]
   orders      Order[]
   restaurantDocuments   RestaurantDocument[]
+  mealPlans   MealPlan[] // Meal plans offered by this restaurant
+  domains     RestaurantDomain[] // Domain management
   
-  createdAt   DateTime
-  updatedAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
   @@map("restaurants")
 }
@@ -206,10 +309,34 @@ model RestaurantDocument {
   fileType     String
   filePath     String
   
-  createdAt    DateTime
-  updatedAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   
   @@map("restaurant_documents")
+}
+
+// Domain management for multi-tenant system
+model RestaurantDomain {
+  id           String      @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  
+  domainType   DomainType  // SUBDOMAIN or CUSTOM
+  domainValue  String      @unique // "lacasa" or "restaurant.com"
+  isVerified   Boolean     @default(false)
+  verifiedAt   DateTime?
+  
+  // SSL Certificate info (for custom domains)
+  sslStatus    String?     // "pending", "active", "failed"
+  sslIssuedAt  DateTime?
+  sslExpiresAt DateTime?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([domainValue])
+  @@index([restaurantId])
+  @@map("restaurant_domains")
 }
 
 model Category {
@@ -225,8 +352,8 @@ model Category {
   // Relations
   menuItems    MenuItem[]
   
-  createdAt    DateTime
-  updatedAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   
   @@map("categories")
 }
@@ -247,11 +374,250 @@ model MenuItem {
   
   // Relations
   orderItems   OrderItem[]
+  mealPlanMeals MealPlanMeal[] // เมนูที่ใช้ใน meal plans
+  nutritionInfo NutritionInfo? // ข้อมูลโภชนาการ
+  deliveryMeals MealPlanDeliveryMeal[] // เพิ่ม relation field ที่ขาดหายไป
   
-  createdAt    DateTime
-  updatedAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   
   @@map("menu_items")
+}
+
+// === MEAL PLAN SYSTEM MODELS ===
+
+// Health Profile for customers
+model HealthProfile {
+  id              String   @id @default(cuid())
+  customerId      String   @unique
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Basic health info
+  height          Float?   // cm
+  weight          Float?   // kg
+  age             Int?
+  gender          String?  // Male, Female, Other
+  activityLevel   String?  // Sedentary, Light, Moderate, Active, Very Active
+  
+  // Goals and preferences
+  healthGoal      String?  // Weight Loss, Weight Gain, Muscle Gain, Maintain Health
+  targetWeight    Float?   // kg
+  dailyCalories   Int?     // kcal
+  
+  // Dietary restrictions - Store as JSON string for MySQL compatibility
+  dietaryRestrictions String? // JSON array of DietaryRestriction values
+  allergies       String?  // Free text for allergies
+  dislikes        String?  // Foods they don't like
+  
+  // Medical conditions
+  medicalConditions String? // Diabetes, Hypertension, etc.
+  medications     String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("health_profiles")
+}
+
+// Meal Plan Templates
+model MealPlan {
+  id              String        @id @default(cuid())
+  restaurantId    String
+  restaurant      Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  
+  name            String        // "7-Day Keto Challenge"
+  description     String?
+  type            MealPlanType
+  duration        MealPlanDuration
+  status          MealPlanStatus @default(DRAFT)
+  
+  // Pricing
+  price           Float         // ราคาต่อคอร์ส
+  originalPrice   Float?        // ราคาก่อนลด
+  
+  // Plan details
+  totalMeals      Int           // จำนวนมื้อทั้งหมด
+  mealsPerDay     Int           // จำนวนมื้อต่อวัน
+  includesSnacks  Boolean       @default(false)
+  
+  // Nutrition summary
+  avgCaloriesPerDay   Int?      // แคลอรี่เฉลี่ยต่อวัน
+  avgProteinPerDay    Float?    // โปรตีนเฉลี่ยต่อวัน (g)
+  avgCarbsPerDay      Float?    // คาร์บเฉลี่ยต่อวัน (g)
+  avgFatPerDay        Float?    // ไขมันเฉลี่ยต่อวัน (g)
+  
+  // Marketing
+  image           String?
+  tags            String?       // JSON array of tags
+  isPopular       Boolean       @default(false)
+  isRecommended   Boolean       @default(false)
+  
+  // Relations
+  mealPlanMeals   MealPlanMeal[]
+  subscriptions   MealPlanSubscription[]
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@map("meal_plans")
+}
+
+// Meals within a meal plan (day-by-day breakdown)
+model MealPlanMeal {
+  id            String      @id @default(cuid())
+  mealPlanId    String
+  mealPlan      MealPlan    @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  menuItemId    String
+  menuItem      MenuItem    @relation(fields: [menuItemId], references: [id])
+  
+  dayNumber     Int         // วันที่ 1, 2, 3, ...
+  mealType      MealType    // Breakfast, Lunch, Dinner, Snack
+  order         Int         @default(0) // ลำดับในวันนั้น
+  
+  // Optional customization
+  portion       Float       @default(1.0) // ขนาดส่วน (1.0 = full portion)
+  notes         String?     // หมายเหตุพิเศษ
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  @@unique([mealPlanId, dayNumber, mealType, order])
+  @@map("meal_plan_meals")
+}
+
+// Customer subscriptions to meal plans
+model MealPlanSubscription {
+  id              String            @id @default(cuid())
+  customerId      String
+  customer        Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  mealPlanId      String
+  mealPlan        MealPlan          @relation(fields: [mealPlanId], references: [id])
+  
+  status          SubscriptionStatus @default(ACTIVE)
+  
+  // Subscription details
+  startDate       DateTime
+  endDate         DateTime
+  totalPrice      Float
+  paidAmount      Float             @default(0)
+  
+  // Delivery preferences
+  deliveryTime    String?           // "08:00-10:00"
+  specialInstructions String?
+  
+  // Customizations
+  skipDates       String?           // JSON array of dates to skip
+  customMeals     String?           // JSON for meal substitutions
+  
+  // Payment
+  paymentMethod   String?
+  paymentStatus   String            @default("PENDING") // PENDING, PAID, FAILED
+  paidAt          DateTime?
+  
+  // Relations
+  deliveries      MealPlanDelivery[]
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  @@map("meal_plan_subscriptions")
+}
+
+// Daily deliveries for meal plan subscriptions
+model MealPlanDelivery {
+  id                    String                @id @default(cuid())
+  subscriptionId        String
+  subscription          MealPlanSubscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  addressId             String
+  address               CustomerAddress       @relation(fields: [addressId], references: [id])
+  riderId               String?
+  rider                 Rider?                @relation(fields: [riderId], references: [id])
+  
+  deliveryDate          DateTime              // วันที่จัดส่ง
+  dayNumber             Int                   // วันที่ในคอร์ส (1, 2, 3, ...)
+  
+  status                String                @default("SCHEDULED") // SCHEDULED, PREPARING, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
+  
+  // Delivery tracking
+  scheduledTime         String?               // "08:00-10:00"
+  preparedAt            DateTime?
+  pickedUpAt            DateTime?
+  deliveredAt           DateTime?
+  cancelledAt           DateTime?
+  cancelReason          String?
+  
+  // Delivery details
+  deliveryFee           Float                 @default(0)
+  specialInstructions   String?
+  deliveryNotes         String?               // หมายเหตุจากไรเดอร์
+  
+  // Relations - meals for this specific delivery
+  deliveryMeals         MealPlanDeliveryMeal[]
+  
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  
+  @@unique([subscriptionId, dayNumber])
+  @@map("meal_plan_deliveries")
+}
+
+// Individual meals in each delivery
+model MealPlanDeliveryMeal {
+  id              String              @id @default(cuid())
+  deliveryId      String
+  delivery        MealPlanDelivery    @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  menuItemId      String
+  menuItem        MenuItem            @relation(fields: [menuItemId], references: [id])
+  
+  mealType        MealType
+  portion         Float               @default(1.0)
+  isDelivered     Boolean             @default(false)
+  notes           String?
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  @@map("meal_plan_delivery_meals")
+}
+
+// Nutrition information for menu items
+model NutritionInfo {
+  id              String    @id @default(cuid())
+  menuItemId      String    @unique
+  menuItem        MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  
+  // Macronutrients (per serving)
+  calories        Float?    // kcal
+  protein         Float?    // g
+  carbohydrates   Float?    // g
+  fat             Float?    // g
+  fiber           Float?    // g
+  sugar           Float?    // g
+  sodium          Float?    // mg
+  
+  // Micronutrients (optional)
+  vitaminA        Float?    // mcg
+  vitaminC        Float?    // mg
+  calcium         Float?    // mg
+  iron            Float?    // mg
+  
+  // Additional info
+  servingSize     String?   // "1 cup", "100g", etc.
+  ingredients     String?   // List of ingredients
+  allergens       String?   // Common allergens
+  
+  // Dietary flags
+  isGlutenFree    Boolean   @default(false)
+  isDairyFree     Boolean   @default(false)
+  isVegan         Boolean   @default(false)
+  isVegetarian    Boolean   @default(false)
+  isKeto          Boolean   @default(false)
+  isLowCarb       Boolean   @default(false)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("nutrition_info")
 }
 
 model Order {
@@ -284,8 +650,8 @@ model Order {
   orderItems        OrderItem[]
   notifications     Notification[]
   
-  createdAt         DateTime
-  updatedAt         DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
   
   @@map("orders")
 }
@@ -302,8 +668,8 @@ model OrderItem {
   total      Float    // quantity * price
   notes      String?  // หมายเหตุพิเศษ เช่น ไม่ใส่ผัก
   
-  createdAt  DateTime
-  updatedAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
   
   @@map("order_items")
 }
@@ -320,8 +686,8 @@ model Notification {
   isRead    Boolean  @default(false)
   data      Json?    // ข้อมูลเพิ่มเติม
   
-  createdAt DateTime
-  updatedAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   
   @@map("notifications")
 }

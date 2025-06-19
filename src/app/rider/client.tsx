@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
+import { 
   Container,
   Box,
   Typography,
-  Button,
-  Grid,
+  Button, Box, 
   Card,
   CardContent,
   AppBar,
@@ -19,7 +18,7 @@ import {
   Paper,
   LinearProgress,
   Divider,
-} from '@mui/material';
+ } from '@mui/material';
 import {
   TwoWheeler,
   AccountCircle,
@@ -174,8 +173,8 @@ export default function RiderPage() {
           </Card>
 
           {/* Statistics */}
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={6} sm={3}>
+          <Box sx={ display: 'grid', gap: 2, { mb: 3  }>
+            <Box>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <Star sx={{ color: '#FFD700', fontSize: 30, mb: 1 }} />
                 <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
@@ -185,8 +184,8 @@ export default function RiderPage() {
                   คะแนน
                 </Typography>
               </Paper>
-            </Grid>
-            <Grid item xs={6} sm={3}>
+            </Box>
+            <Box>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <Assignment sx={{ color: 'primary.main', fontSize: 30, mb: 1 }} />
                 <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
@@ -196,8 +195,8 @@ export default function RiderPage() {
                   งานที่ส่งแล้ว
                 </Typography>
               </Paper>
-            </Grid>
-            <Grid item xs={6} sm={3}>
+            </Box>
+            <Box>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <AttachMoney sx={{ color: 'success.main', fontSize: 30, mb: 1 }} />
                 <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
@@ -207,8 +206,8 @@ export default function RiderPage() {
                   รายได้วันนี้
                 </Typography>
               </Paper>
-            </Grid>
-            <Grid item xs={6} sm={3}>
+            </Box>
+            <Box>
               <Paper sx={{ p: 2, textAlign: 'center' }}>
                 <TrendingUp sx={{ color: 'info.main', fontSize: 30, mb: 1 }} />
                 <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
@@ -218,8 +217,8 @@ export default function RiderPage() {
                   อัตราสำเร็จ
                 </Typography>
               </Paper>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
 
           {/* Active Delivery */}
           {activeDelivery && isOnline && (
@@ -248,18 +247,18 @@ export default function RiderPage() {
                   />
                 </Box>
 
-                <Grid container spacing={2} sx={{ mb: 2 }}>
-                  <Grid item xs={12} sm={6}>
+                <Box sx={ display: 'grid', gap: 2, { mb: 2  }>
+                  <Box>
                     <Typography variant="body2" color="text.secondary">
                       รับอาหาร: {activeDelivery.pickupAddress}
                     </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
+                  </Box>
+                  <Box>
                     <Typography variant="body2" color="text.secondary">
                       ส่งที่: {activeDelivery.deliveryAddress}
                     </Typography>
-                  </Grid>
-                </Grid>
+                  </Box>
+                </Box>
 
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button

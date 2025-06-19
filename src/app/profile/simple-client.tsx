@@ -24,6 +24,7 @@ import {
   Logout,
   MyLocation,
   ArrowBack,
+  Restaurant,
 } from '@mui/icons-material';
 import RestaurantStatusButton from '@/components/RestaurantStatusButton';
 import { useSnackbar } from '@/contexts/SnackbarContext';
@@ -443,7 +444,12 @@ export default function SimpleProfileClient() {
   };
 
   return (
-    <Box className="app-container">
+    <Box sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+      overflow: 'hidden'
+    }}>
       {/* Custom Header */}
       <Box sx={{
         position: 'sticky',
@@ -505,8 +511,20 @@ export default function SimpleProfileClient() {
         </Button>
       </Box>
 
-      {/* Profile Content */}
-      <Box className="app-content" sx={{ bgcolor: '#F5F5F5' , marginBottom: '64px' }}>
+      {/* Profile Content - Scrollable Area */}
+      <Box sx={{ 
+        flex: 1,
+        overflow: 'auto',
+        bgcolor: '#F5F5F5',
+        paddingBottom: '88px', // เผื่อ space สำหรับ footer
+        '-webkit-overflow-scrolling': 'touch',
+        // ซ่อน scrollbar
+        '&::-webkit-scrollbar': {
+          display: 'none'
+        },
+        '-ms-overflow-style': 'none',
+        'scrollbar-width': 'none'
+      }}>
         <Box sx={{ px: 2, py: 3 }}>
         {/* Profile Header */}
         <Box sx={{ 
@@ -1114,9 +1132,34 @@ export default function SimpleProfileClient() {
         )}
 
         {/* Restaurant Status */}
-        <Box sx={{ mt: 3 }}>
-          <RestaurantStatusButton session={session} router={router} />
-        </Box>
+        {session?.user?.primaryRole === 'RESTAURANT' || session?.user?.roles?.includes('RESTAURANT') ? (
+          <Box sx={{ 
+            mt: 3,
+            bgcolor: '#FFFFFF', 
+            borderRadius: 2, 
+            p: 3,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <Restaurant sx={{ color: '#F8A66E', mr: 1.5, fontSize: 20 }} />
+              <Typography 
+                variant="subtitle1" 
+                sx={{ 
+                  fontFamily: 'Prompt, sans-serif',
+                  fontWeight: 600, 
+                  color: '#1A1A1A', 
+                }}
+              >
+                จัดการร้านอาหาร
+              </Typography>
+            </Box>
+            <RestaurantStatusButton session={session} router={router} />
+          </Box>
+        ) : (
+          <Box sx={{ mt: 3 }}>
+            <RestaurantStatusButton session={session} router={router} />
+          </Box>
+        )}
 
         {/* Logout Button */}
         <Box sx={{ mt: 3 }}>
@@ -1155,7 +1198,7 @@ export default function SimpleProfileClient() {
         style={{ display: 'none' }}
       />
 
-      {/* Footer Navigation */}
+      {/* Footer Navigation - Fixed Position */}
       <FooterNavbar cartCount={cartCount} />
     </Box>
 

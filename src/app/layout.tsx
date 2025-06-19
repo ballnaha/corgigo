@@ -6,6 +6,7 @@ import ThemeProvider from "@/components/ThemeProvider";
 import { SnackbarProvider } from "@/contexts/SnackbarContext";
 import { NavigationProvider } from "@/contexts/NavigationContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { CartProvider } from "@/contexts/CartContext";
 
 const prompt = Prompt({
   subsets: ["latin", "thai"],
@@ -42,7 +43,9 @@ export default function RootLayout({
             <SnackbarProvider>
               <NavigationProvider>
                 <NotificationProvider>
-            {children}
+                  <CartProvider>
+                    {children}
+                  </CartProvider>
                 </NotificationProvider>
               </NavigationProvider>
             </SnackbarProvider>

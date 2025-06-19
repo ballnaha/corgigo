@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
+import { 
   Box,
   Typography,
   Card,
@@ -21,13 +21,12 @@ import {
   Stack,
   useTheme,
   useMediaQuery,
-  Button,
-  Grid,
+  Button, Box, 
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-} from '@mui/material';
+ } from '@mui/material';
 import {
   Search,
   Edit,
@@ -211,20 +210,20 @@ export default function CategoriesPage() {
                       <Typography variant="body2">{category.description || 'ไม่มีรายละเอียด'}</Typography>
                     </Box>
                     
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
+                    <Box sx={ display: 'grid', gap: 2 }>
+                      <Box>
                         <Typography variant="caption" color="text.secondary" fontWeight="600">ร้านอาหาร</Typography>
                         <Typography variant="body2" fontWeight="600" color="primary">
                           {category.restaurantCount} ร้าน
                         </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
+                      </Box>
+                      <Box>
                         <Typography variant="caption" color="text.secondary" fontWeight="600">ออเดอร์ทั้งหมด</Typography>
                         <Typography variant="body2" fontWeight="600" color="success">
                           {category.orderCount.toLocaleString()} ออเดอร์
                         </Typography>
-                      </Grid>
-                    </Grid>
+                      </Box>
+                    </Box>
                   </Stack>
                   
                   <Box sx={{ 
@@ -402,24 +401,24 @@ export default function CategoriesPage() {
                 </Typography>
               </Box>
               
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
+              <Box sx={ display: 'grid', gap: 2 }>
+                <Box>
                   <Typography variant="subtitle2" fontWeight="600">
                     จำนวนร้านอาหาร
                   </Typography>
                   <Typography variant="h5" color="primary" fontWeight="600">
                     {selectedCategory.restaurantCount}
                   </Typography>
-                </Grid>
-                <Grid item xs={6}>
+                </Box>
+                <Box>
                   <Typography variant="subtitle2" fontWeight="600">
                     ยอดออเดอร์
                   </Typography>
                   <Typography variant="h5" color="success" fontWeight="600">
                     {selectedCategory.orderCount.toLocaleString()}
                   </Typography>
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
               
               <Box>
                 <Typography variant="subtitle2" fontWeight="600">

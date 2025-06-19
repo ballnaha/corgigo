@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
+import { 
   Box,
   Typography,
   Card,
@@ -21,14 +21,13 @@ import {
   Stack,
   useTheme,
   useMediaQuery,
-  Button,
-  Grid,
+  Button, Box, 
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Divider,
-} from '@mui/material';
+ } from '@mui/material';
 import {
   Search,
   Visibility,
@@ -508,16 +507,16 @@ export default function PendingOrdersPage() {
 
               {/* Payment & Notes */}
               <Box>
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
+                <Box sx={ display: 'grid', gap: 2 }>
+                  <Box>
                     <Typography variant="subtitle2" fontWeight="600">การชำระเงิน</Typography>
                     <Typography variant="body2">{selectedOrder.paymentMethod}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
+                  </Box>
+                  <Box>
                     <Typography variant="subtitle2" fontWeight="600">หมายเหตุ</Typography>
                     <Typography variant="body2">{selectedOrder.notes || 'ไม่มี'}</Typography>
-                  </Grid>
-                </Grid>
+                  </Box>
+                </Box>
               </Box>
             </Stack>
           )}

@@ -6,23 +6,12 @@ import {
   Typography,
   Card,
   CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Avatar,
   Chip,
   IconButton,
   LinearProgress,
   TextField,
   InputAdornment,
-  Stack,
-  useTheme,
-  useMediaQuery,
   Button,
-  Grid,
 } from '@mui/material';
 import {
   Search,
@@ -70,8 +59,6 @@ export default function MenusPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRestaurant, setSelectedRestaurant] = useState<string>('all');
   const [error, setError] = useState<string | null>(null);
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // Fetch restaurants and generate mock menu data
   const fetchMenusData = async () => {
@@ -84,38 +71,29 @@ export default function MenusPage() {
         const restaurantsList = data.restaurants || [];
         setRestaurants(restaurantsList);
         
-        // Generate mock menu items for each restaurant
-        const mockMenus: any[] = [];
-        restaurantsList.forEach((restaurant: any) => {
-          const menuCount = Math.floor(Math.random() * 8) + 3; // 3-10 items per restaurant
-          for (let i = 0; i < menuCount; i++) {
-            const categories = ['อาหารจานหลัก', 'ของทานเล่น', 'เครื่องดื่ม', 'ของหวาน'];
-            const menuNames = [
-              'ผัดไทย', 'ต้มยำกุ้ง', 'แกงเขียวหวานไก่', 'ข้าวผัดกุ้ง', 'สมตำ',
-              'ลาบหมู', 'ส้มตำไทย', 'ไก่ย่าง', 'หมูกรอบ', 'ปลาทอด',
-              'น้ำส้มโอ', 'ชาเขียว', 'กาแฟเย็น', 'น้ำมะนาว', 'น้ำแตงโม',
-              'ไอศกรีม', 'ข้าวเหนียวมะม่วง', 'ทองหยิบ', 'ฟักทองแกง'
-            ];
-            
-            mockMenus.push({
-              id: `menu_${restaurant.id}_${i}`,
-              name: menuNames[Math.floor(Math.random() * menuNames.length)],
-              description: 'เมนูอร่อยจากเชฟมากประสบการณ์',
-              price: Math.floor(Math.random() * 200) + 50,
-              category: categories[Math.floor(Math.random() * categories.length)],
-              image: null,
-              available: Math.random() > 0.2, // 80% available
-              restaurant: {
-                id: restaurant.id,
-                name: restaurant.name,
-                image: restaurant.image
-              },
-              createdAt: new Date().toISOString(),
-            });
+        // Fetch real menu data from all restaurants
+        const allMenus: any[] = [];
+        for (const restaurant of restaurantsList) {
+          try {
+            const menuResponse = await fetch(`/api/admin/restaurants/${restaurant.id}/menus`);
+            const menuData = await menuResponse.json();
+            if (menuData.success && menuData.menus) {
+              const menusWithRestaurant = menuData.menus.map((menu: any) => ({
+                ...menu,
+                restaurant: {
+                  id: restaurant.id,
+                  name: restaurant.name,
+                  image: restaurant.avatarUrl || restaurant.image
+                }
+              }));
+              allMenus.push(...menusWithRestaurant);
+            }
+          } catch (err) {
+            console.error(`Error fetching menus for restaurant ${restaurant.id}:`, err);
           }
-        });
+        }
         
-        setMenus(mockMenus);
+        setMenus(allMenus);
       } else {
         setError('ไม่สามารถโหลดข้อมูลเมนูได้');
       }
@@ -135,7 +113,7 @@ export default function MenusPage() {
   const filteredMenus = menus.filter(menu => {
     const matchesSearch = menu.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          menu.restaurant?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         menu.category?.toLowerCase().includes(searchTerm.toLowerCase());
+                         menu.category?.name?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesRestaurant = selectedRestaurant === 'all' || menu.restaurant.id === selectedRestaurant;
     
@@ -171,8 +149,8 @@ export default function MenusPage() {
       <Card sx={{ boxShadow: vristoTheme.shadow.card, borderRadius: 2 }}>
         <CardContent>
           {/* Search and Filter */}
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} md={8}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, mb: 3 }}>
+            <Box sx={{ flex: { xs: 1, md: 2 } }}>
               <TextField
                 fullWidth
                 placeholder="ค้นหาเมนู, ร้านอาหาร, หมวดหมู่..."
@@ -186,8 +164,8 @@ export default function MenusPage() {
                   ),
                 }}
               />
-            </Grid>
-            <Grid item xs={12} md={4}>
+            </Box>
+            <Box sx={{ flex: { xs: 1, md: 1 } }}>
               <TextField
                 fullWidth
                 select
@@ -203,179 +181,178 @@ export default function MenusPage() {
                   </option>
                 ))}
               </TextField>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
 
-          {/* Table / Mobile Cards */}
-          {isMobile ? (
-            /* Mobile Card Layout */
-            <Box sx={{ display: 'grid', gap: 2 }}>
-              {filteredMenus.map((menu) => (
-                <Card key={menu.id} variant="outlined" sx={{ 
-                  p: 2,
+          {/* 4 Columns Menu Cards */}
+          <Box sx={{ 
+            display: 'flex', 
+            flexWrap: 'wrap',
+            gap: 3
+          }}>
+            {filteredMenus.map((menu) => (
+              <Box 
+                key={menu.id}
+                sx={{ 
+                  flex: { 
+                    xs: '1 1 100%', 
+                    sm: '1 1 calc(50% - 12px)', 
+                    md: '1 1 calc(33.333% - 16px)',
+                    lg: '1 1 calc(25% - 18px)' 
+                  } 
+                }}
+              >
+                <Card sx={{ 
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
                   transition: 'all 0.2s ease',
                   '&:hover': {
                     boxShadow: vristoTheme.shadow.elevated,
-                    transform: 'translateY(-1px)'
+                    transform: 'translateY(-2px)'
                   }
                 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Avatar 
-                      src={menu.image} 
-                      sx={{ width: 48, height: 48, bgcolor: vristoTheme.secondary }}
-                    >
-                      <MenuBook />
-                    </Avatar>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body1" fontWeight="600" sx={{
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {menu.name}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                  {/* Menu Image */}
+                  <Box sx={{ position: 'relative', paddingTop: '60%' }}>
+                    <Box
+                      component="img"
+                      src={menu.image || '/images/CorgiGo (5).png'}
+                      alt={menu.name}
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                    {/* Status Badge */}
+                    <Chip
+                      label={menu.isAvailable ? 'พร้อมขาย' : 'หมด'}
+                      color={menu.isAvailable ? 'success' : 'error'}
+                      size="small"
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        bgcolor: menu.isAvailable ? vristoTheme.success : vristoTheme.danger,
+                        color: 'white',
+                        fontWeight: 'bold'
+                      }}
+                    />
+                  </Box>
+
+                  <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                    {/* Menu Name */}
+                    <Typography variant="h6" fontWeight="600" sx={{ mb: 1 }}>
+                      {menu.name}
+                    </Typography>
+
+                    {/* Restaurant & Category */}
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                         {menu.restaurant.name}
                       </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="h6" fontWeight="600" color="primary">
-                        ฿{menu.price.toLocaleString()}
-                      </Typography>
-                      <Chip
-                        label={menu.available ? 'มีในสต็อก' : 'หมด'}
-                        color={menu.available ? 'success' : 'error'}
-                        size="small"
-                      />
-                    </Box>
-                  </Box>
-                  
-                  <Stack spacing={1.5}>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" fontWeight="600">หมวดหมู่</Typography>
-                      <Typography variant="body2">{menu.category}</Typography>
-                    </Box>
-                    
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" fontWeight="600">รายละเอียด</Typography>
-                      <Typography variant="body2">{menu.description}</Typography>
-                    </Box>
-                  </Stack>
-                  
-                  <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'flex-end', 
-                    gap: 1, 
-                    mt: 2,
-                    pt: 2,
-                    borderTop: '1px solid',
-                    borderColor: 'divider'
-                  }}>
-                    <IconButton size="small" color="primary" sx={{ 
-                      bgcolor: 'primary.light',
-                      '&:hover': { bgcolor: 'primary.main', color: 'white' }
-                    }}>
-                      <Visibility />
-                    </IconButton>
-                    <IconButton size="small" color="primary" sx={{ 
-                      bgcolor: 'primary.light',
-                      '&:hover': { bgcolor: 'primary.main', color: 'white' }
-                    }}>
-                      <Edit />
-                    </IconButton>
-                    <IconButton size="small" color="error" sx={{ 
-                      bgcolor: 'error.light',
-                      '&:hover': { bgcolor: 'error.main', color: 'white' }
-                    }}>
-                      <Delete />
-                    </IconButton>
-                  </Box>
-                </Card>
-              ))}
-            </Box>
-          ) : (
-            /* Desktop Table Layout */
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>เมนู</TableCell>
-                    <TableCell>ร้านอาหาร</TableCell>
-                    <TableCell>หมวดหมู่</TableCell>
-                    <TableCell align="right">ราคา</TableCell>
-                    <TableCell>สถานะ</TableCell>
-                    <TableCell>รายละเอียด</TableCell>
-                    <TableCell align="center">การจัดการ</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredMenus.map((menu) => (
-                    <TableRow key={menu.id}>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Avatar 
-                            src={menu.image} 
-                            sx={{ width: 40, height: 40, bgcolor: vristoTheme.secondary }}
-                          >
-                            <MenuBook />
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body2" fontWeight="600">
-                              {menu.name}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">{menu.restaurant.name}</Typography>
-                      </TableCell>
-                      <TableCell>
+                      {menu.category && (
                         <Chip
-                          label={menu.category}
+                          label={menu.category.name}
                           color="primary"
                           size="small"
                           variant="outlined"
                         />
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" fontWeight="600" color="primary">
+                      )}
+                    </Box>
+
+                    {/* Description */}
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      sx={{ 
+                        mb: 2,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        flexGrow: 1
+                      }}
+                    >
+                      {menu.description || 'ไม่มีคำอธิบาย'}
+                    </Typography>
+
+                    {/* Price Section */}
+                    <Box sx={{ mb: 2 }}>
+                      {menu.originalPrice && menu.originalPrice > menu.price ? (
+                        <Box>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              textDecoration: 'line-through',
+                              color: 'text.secondary' 
+                            }}
+                          >
+                            ฿{menu.originalPrice.toLocaleString()}
+                          </Typography>
+                          <Typography 
+                            variant="h6" 
+                            fontWeight="bold" 
+                            color="error.main"
+                            sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                          >
+                            ฿{menu.price.toLocaleString()}
+                            <Chip 
+                              label={`-${Math.round(((menu.originalPrice - menu.price) / menu.originalPrice) * 100)}%`}
+                              color="error"
+                              size="small"
+                            />
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Typography variant="h6" fontWeight="bold" color="primary">
                           ฿{menu.price.toLocaleString()}
                         </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={menu.available ? 'มีในสต็อก' : 'หมด'}
-                          color={menu.available ? 'success' : 'error'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{
-                          maxWidth: 200,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {menu.description}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <IconButton size="small" color="primary">
-                          <Visibility />
-                        </IconButton>
-                        <IconButton size="small" color="primary">
-                          <Edit />
-                        </IconButton>
-                        <IconButton size="small" color="error">
-                          <Delete />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+                      )}
+                    </Box>
+
+                    {/* Action Buttons */}
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                      <IconButton 
+                        size="small" 
+                        color="primary"
+                        sx={{ 
+                          bgcolor: `${vristoTheme.primary}10`,
+                          '&:hover': { bgcolor: vristoTheme.primary, color: 'white' }
+                        }}
+                      >
+                        <Visibility />
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        color="primary"
+                        sx={{ 
+                          bgcolor: `${vristoTheme.secondary}10`,
+                          '&:hover': { bgcolor: vristoTheme.secondary, color: 'white' }
+                        }}
+                      >
+                        <Edit />
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        color="error"
+                        sx={{ 
+                          bgcolor: `${vristoTheme.danger}10`,
+                          '&:hover': { bgcolor: vristoTheme.danger, color: 'white' }
+                        }}
+                      >
+                        <Delete />
+                      </IconButton>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Box>
+            ))}
+          </Box>
 
           {filteredMenus.length === 0 && (
             <Box sx={{ textAlign: 'center', py: 4 }}>

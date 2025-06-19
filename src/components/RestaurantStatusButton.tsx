@@ -24,11 +24,7 @@ export default function RestaurantStatusButton({ session, router }: RestaurantSt
           if (result.success && result.restaurant) {
             setRestaurantStatus(result.restaurant.status);
             
-            // Auto redirect if approved
-            if (result.restaurant.status === 'APPROVED') {
-              router.push('/restaurant');
-              return;
-            }
+            // ไม่ auto redirect แล้ว - ให้ผู้ใช้คลิกเอง
           }
         } else if (response.status === 404) {
           // ไม่พบข้อมูลร้านอาหาร = ยังไม่ได้สมัคร

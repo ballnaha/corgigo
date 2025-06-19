@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
+import { 
   Box,
   Typography,
   Card,
-  CardContent,
-  Grid,
+  CardContent, Box, 
   LinearProgress,
   Table,
   TableBody,
@@ -20,7 +19,7 @@ import {
   useMediaQuery,
   TextField,
   MenuItem,
-} from '@mui/material';
+ } from '@mui/material';
 import {
   TrendingUp,
   TrendingDown,
@@ -131,8 +130,8 @@ export default function FinancialPage() {
       </Box>
 
       {/* Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+      <Box sx={ display: 'grid', gap: 3, { mb: 4  }>
+        <Box>
           <Card sx={{ 
             p: 3, 
             boxShadow: vristoTheme.shadow.card,
@@ -158,9 +157,9 @@ export default function FinancialPage() {
               </Typography>
             </Box>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Box>
           <Card sx={{ 
             p: 3, 
             boxShadow: vristoTheme.shadow.card,
@@ -186,9 +185,9 @@ export default function FinancialPage() {
               </Typography>
             </Box>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Box>
           <Card sx={{ 
             p: 3, 
             boxShadow: vristoTheme.shadow.card,
@@ -214,9 +213,9 @@ export default function FinancialPage() {
               </Typography>
             </Box>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Box>
           <Card sx={{ 
             p: 3, 
             boxShadow: vristoTheme.shadow.card,
@@ -242,12 +241,12 @@ export default function FinancialPage() {
               </Typography>
             </Box>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
-      <Grid container spacing={3}>
+      <Box sx={ display: 'grid', gap: 3 }>
         {/* Revenue Breakdown */}
-        <Grid item xs={12} lg={6}>
+        <Box>
           <Card sx={{ boxShadow: vristoTheme.shadow.card, borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight="600" gutterBottom>
@@ -330,10 +329,10 @@ export default function FinancialPage() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Top Revenue Restaurants */}
-        <Grid item xs={12} lg={6}>
+        <Box>
           <Card sx={{ boxShadow: vristoTheme.shadow.card, borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight="600" gutterBottom>
@@ -381,18 +380,18 @@ export default function FinancialPage() {
               </TableContainer>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Transaction Summary */}
-        <Grid item xs={12}>
+        <Box>
           <Card sx={{ boxShadow: vristoTheme.shadow.card, borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight="600" gutterBottom>
                 สรุปการทำธุรกรรม
               </Typography>
               
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
+              <Box sx={ display: 'grid', gap: 3 }>
+                <Box>
                   <Box sx={{ textAlign: 'center', p: 2 }}>
                     <Typography variant="h4" fontWeight="700" color="primary">
                       {financialData.transactionCount?.toLocaleString()}
@@ -401,8 +400,8 @@ export default function FinancialPage() {
                       จำนวนธุรกรรม
                     </Typography>
                   </Box>
-                </Grid>
-                <Grid item xs={12} md={4}>
+                </Box>
+                <Box>
                   <Box sx={{ textAlign: 'center', p: 2 }}>
                     <Typography variant="h4" fontWeight="700" color="success">
                       ฿{financialData.avgTransactionValue?.toFixed(0)}
@@ -411,8 +410,8 @@ export default function FinancialPage() {
                       มูลค่าเฉลี่ยต่อธุรกรรม
                     </Typography>
                   </Box>
-                </Grid>
-                <Grid item xs={12} md={4}>
+                </Box>
+                <Box>
                   <Box sx={{ textAlign: 'center', p: 2 }}>
                     <Typography variant="h4" fontWeight="700" color="warning">
                       {((financialData.netProfit / financialData.totalRevenue) * 100).toFixed(1)}%
@@ -421,12 +420,12 @@ export default function FinancialPage() {
                       อัตรากำไรสุทธิ
                     </Typography>
                   </Box>
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Box>
   );
 } 

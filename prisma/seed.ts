@@ -38,9 +38,7 @@ async function main() {
   await prisma.userRoles.create({
     data: {
       userId: adminUser.id,
-      role: 'ADMIN',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      role: 'ADMIN'
     }
   })
 

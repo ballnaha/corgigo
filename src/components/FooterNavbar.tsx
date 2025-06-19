@@ -16,16 +16,17 @@ import {
   Person,
   History,
   MoreVert,
+  NotificationsOutlined,
 } from '@mui/icons-material';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useCart } from '@/contexts/CartContext';
 
-interface FooterNavbarProps {
-  cartCount?: number;
-}
+interface FooterNavbarProps {}
 
-const FooterNavbar = ({ cartCount = 0 }: FooterNavbarProps) => {
+const FooterNavbar = ({}: FooterNavbarProps) => {
   const pathname = usePathname();
   const { navigateToHome, navigateToOrders, navigateToSettings, navigateToProfile } = useAppNavigation();
+  const { itemCount, notificationCount, clearNotifications, isLoaded } = useCart();
 
   // กำหนดเส้นทางที่ไม่ควรแสดง FooterNavbar
   const hiddenPaths = ['/auth/login', '/auth/register', '/admin', '/onboarding'];
@@ -38,9 +39,10 @@ const FooterNavbar = ({ cartCount = 0 }: FooterNavbarProps) => {
   // กำหนดค่า active tab ตาม pathname
   const getActiveTab = () => {
     if (pathname === '/') return 0;
-    if (pathname?.startsWith('/orders')) return 1;
-    if (pathname?.startsWith('/settings')) return 2;
-    if (pathname?.startsWith('/profile')) return 3;
+    if (pathname?.startsWith('/cart')) return 1;
+    if (pathname?.startsWith('/notifications')) return 2;
+    if (pathname?.startsWith('/orders')) return 3;
+    if (pathname?.startsWith('/profile')) return 4;
     return 0; // default to home
   };
 
@@ -50,12 +52,16 @@ const FooterNavbar = ({ cartCount = 0 }: FooterNavbarProps) => {
         navigateToHome();
         break;
       case 1:
-        navigateToOrders();
+        window.location.href = '/cart';
         break;
       case 2:
-        navigateToSettings();
+        clearNotifications();
+        window.location.href = '/notifications';
         break;
       case 3:
+        navigateToOrders();
+        break;
+      case 4:
         navigateToProfile();
         break;
     }
@@ -156,13 +162,52 @@ const FooterNavbar = ({ cartCount = 0 }: FooterNavbarProps) => {
         />
         
         <BottomNavigationAction
-          label="ประวัติการสั่งซื้อ"
+          label="ตะกร้า"
+          icon={
+            <Badge 
+              badgeContent={isLoaded ? itemCount : 0} 
+              color="error"
+              sx={{
+                '& .MuiBadge-badge': {
+                  fontSize: '0.6rem',
+                  height: 16,
+                  minWidth: 16,
+                  fontFamily: 'Prompt, sans-serif',
+                  fontWeight: 600
+                }
+              }}
+            >
+              <ShoppingCartOutlined sx={{ fontSize: 24 }} />
+            </Badge>
+          }
+        />
+
+        <BottomNavigationAction
+          label="แจ้งเตือน"
+          icon={
+            <Badge 
+              badgeContent={isLoaded ? notificationCount : 0} 
+              color="error"
+              sx={{
+                '& .MuiBadge-badge': {
+                  fontSize: '0.6rem',
+                  height: 16,
+                  minWidth: 16,
+                  fontFamily: 'Prompt, sans-serif',
+                  fontWeight: 600
+                }
+              }}
+            >
+              <NotificationsOutlined sx={{ fontSize: 24 }} />
+            </Badge>
+          }
+        />
+        
+        <BottomNavigationAction
+          label="ประวัติ"
           icon={<History sx={{ fontSize: 24 }} />}
         />    
-        <BottomNavigationAction
-          label="การตั้งค่า"
-          icon={<MoreVert sx={{ fontSize: 24 }} />}
-        />
+
         <BottomNavigationAction
           label="โปรไฟล์"
           icon={<Person sx={{ fontSize: 24 }} />}

@@ -33,6 +33,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import RestaurantSidebar from '@/components/RestaurantSidebar';
 import RestaurantStatusChecker from '@/components/RestaurantStatusChecker';
 import NoSSR from '@/components/NoSSR';
+import { useSnackbar } from '@/contexts/SnackbarContext';
 
 // Vristo Theme Colors
 const vristoTheme = {
@@ -127,9 +128,14 @@ export default function RestaurantClientLayout({
   });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
+  const [restaurantName, setRestaurantName] = useState<string>('');
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
+  const { showSnackbar } = useSnackbar();
+
+  // เช็คสถานะเฉพาะหน้าที่ไม่ใช่ register และ pending
+  const isRegisterOrPending = pathname === '/restaurant/register' || pathname === '/restaurant/pending';
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -153,6 +159,54 @@ export default function RestaurantClientLayout({
     }
   };
 
+  // Fetch restaurant data
+  const fetchRestaurantData = async () => {
+    try {
+      // Fetch restaurant status
+      const response = await fetch('/api/restaurant/status');
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.restaurant) {
+          setRestaurantName(result.restaurant.name || '');
+          setIsRestaurantOpen(result.restaurant.isOpen || false);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching restaurant data:', error);
+    }
+  };
+
+  // Handle restaurant status change
+  const handleStatusChange = async (newStatus: boolean) => {
+    try {
+      const response = await fetch('/api/restaurant/status', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isOpen: newStatus }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setIsRestaurantOpen(newStatus);
+        console.log('Restaurant status updated:', result.message);
+        showSnackbar(result.message || 'อัพเดตสถานะร้านอาหารเรียบร้อยแล้ว', 'success');
+      } else {
+        console.error('Failed to update restaurant status:', result.error);
+        // Revert the switch state if API call failed
+        setIsRestaurantOpen(!newStatus);
+        showSnackbar(result.error || 'ไม่สามารถอัพเดตสถานะร้านอาหารได้', 'error');
+      }
+    } catch (error) {
+      console.error('Error updating restaurant status:', error);
+      // Revert the switch state if API call failed
+      setIsRestaurantOpen(!newStatus);
+      showSnackbar('เกิดข้อผิดพลาดในการอัพเดตสถานะร้านอาหาร', 'error');
+    }
+  };
+
   // Fetch badge counts
   const fetchBadgeCounts = async () => {
     try {
@@ -167,15 +221,21 @@ export default function RestaurantClientLayout({
     }
   };
 
-  // Fetch badge counts on mount and periodically
+  // Fetch data on mount and periodically
   useEffect(() => {
-    fetchBadgeCounts();
-    
-    // Refresh badge counts every 30 seconds
-    const interval = setInterval(fetchBadgeCounts, 30000);
-    
-    return () => clearInterval(interval);
-  }, []);
+    if (sessionStatus === 'authenticated' && !isRegisterOrPending) {
+      fetchRestaurantData();
+      fetchBadgeCounts();
+      
+      // Refresh data every 30 seconds
+      const interval = setInterval(() => {
+        fetchRestaurantData();
+        fetchBadgeCounts();
+      }, 30000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [sessionStatus, isRegisterOrPending]);
 
   // Generate breadcrumbs
   const pathSegments = (pathname || '').split('/').filter(Boolean);
@@ -184,9 +244,6 @@ export default function RestaurantClientLayout({
     const breadcrumb = breadcrumbMap[path];
     return breadcrumb ? { ...breadcrumb, path } : null;
   }).filter((crumb): crumb is NonNullable<typeof crumb> => crumb !== null);
-
-  // เช็คสถานะเฉพาะหน้าที่ไม่ใช่ register และ pending
-  const isRegisterOrPending = pathname === '/restaurant/register' || pathname === '/restaurant/pending';
 
   console.log('🔍 RestaurantClientLayout - pathname:', pathname, 'isRegisterOrPending:', isRegisterOrPending);
 
@@ -215,6 +272,7 @@ export default function RestaurantClientLayout({
                 mobileOpen={mobileOpen}
                 onMobileClose={() => setMobileOpen(false)}
                 pathname={pathname || ''}
+                restaurantName={restaurantName}
                 badgeCounts={badgeCounts}
               />
 
@@ -255,8 +313,10 @@ export default function RestaurantClientLayout({
                       </IconButton>
                     )}
                     
-                    {/* Breadcrumbs */}
+                    {/* Restaurant Name & Breadcrumbs */}
                     <Box sx={{ flexGrow: 1 }}>
+                      
+                      
                       <Breadcrumbs
                         separator={<NavigateNext fontSize="small" />}
                         aria-label="breadcrumb"
@@ -322,7 +382,7 @@ export default function RestaurantClientLayout({
                       control={
                         <Switch
                           checked={isRestaurantOpen}
-                          onChange={(e) => setIsRestaurantOpen(e.target.checked)}
+                          onChange={(e) => handleStatusChange(e.target.checked)}
                           color="success"
                         />
                       }

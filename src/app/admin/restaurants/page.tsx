@@ -22,6 +22,11 @@ import {
   Stack,
   useTheme,
   useMediaQuery,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
 } from '@mui/material';
 import {
   Search,
@@ -29,7 +34,11 @@ import {
   Visibility,
   Store,
   LocationOn,
+  Close,
+  Map,
 } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
+import MiniMap from '@/components/MiniMap';
 
 const vristoTheme = {
   primary: '#4361ee',
@@ -63,8 +72,11 @@ export default function RestaurantsPage() {
   const [restaurants, setRestaurants] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [mapDialog, setMapDialog] = useState(false);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<any>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const router = useRouter();
 
   // Fetch restaurants data
   const fetchRestaurants = async () => {
@@ -89,6 +101,16 @@ export default function RestaurantsPage() {
   useEffect(() => {
     fetchRestaurants();
   }, []);
+
+  const handleShowMap = (restaurant: any) => {
+    setSelectedRestaurant(restaurant);
+    setMapDialog(true);
+  };
+
+  const handleCloseMap = () => {
+    setMapDialog(false);
+    setSelectedRestaurant(null);
+  };
 
   // Filter restaurants based on search term
   const filteredRestaurants = restaurants.filter(restaurant =>
@@ -215,6 +237,32 @@ export default function RestaurantsPage() {
                     </Box>
                     
                     <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight="600">พิกัด</Typography>
+                      {restaurant.latitude && restaurant.longitude ? (
+                        <Box>
+                          <Typography variant="body2" sx={{ fontSize: '0.875rem', fontFamily: 'monospace' }}>
+                            Lat: {parseFloat(restaurant.latitude).toFixed(6)}
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontSize: '0.875rem', fontFamily: 'monospace' }}>
+                            Lng: {parseFloat(restaurant.longitude).toFixed(6)}
+                          </Typography>
+                          <IconButton 
+                            size="small" 
+                            color="primary"
+                            onClick={() => handleShowMap(restaurant)}
+                            sx={{ mt: 0.5, p: 0.5 }}
+                          >
+                            <Map fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      ) : (
+                        <Typography variant="body2" color="text.disabled">
+                          ไม่มีพิกัด
+                        </Typography>
+                      )}
+                    </Box>
+                    
+                    <Box>
                       <Typography variant="caption" color="text.secondary" fontWeight="600">เรตติ้ง</Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Rating 
@@ -252,10 +300,15 @@ export default function RestaurantsPage() {
                     borderTop: '1px solid',
                     borderColor: 'divider'
                   }}>
-                    <IconButton size="small" color="primary" sx={{ 
-                      bgcolor: 'primary.light',
-                      '&:hover': { bgcolor: 'primary.main', color: 'white' }
-                    }}>
+                    <IconButton 
+                      size="small" 
+                      color="primary" 
+                      sx={{ 
+                        bgcolor: 'primary.light',
+                        '&:hover': { bgcolor: 'primary.main', color: 'white' }
+                      }}
+                      onClick={() => router.push(`/admin/restaurants/${restaurant.id}`)}
+                    >
                       <Visibility />
                     </IconButton>
                     <IconButton size="small" color="primary" sx={{ 
@@ -277,6 +330,7 @@ export default function RestaurantsPage() {
                     <TableCell>ร้านอาหาร</TableCell>
                     <TableCell>เจ้าของ</TableCell>
                     <TableCell>ที่อยู่</TableCell>
+                    <TableCell>พิกัด</TableCell>
                     <TableCell>เรตติ้ง</TableCell>
                     <TableCell>สถานะ</TableCell>
                     <TableCell>วันที่อนุมัติ</TableCell>
@@ -329,6 +383,32 @@ export default function RestaurantsPage() {
                         </Box>
                       </TableCell>
                       <TableCell>
+                        <Box sx={{ minWidth: 120 }}>
+                          {restaurant.latitude && restaurant.longitude ? (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                Lat: {parseFloat(restaurant.latitude).toFixed(6)}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                Lng: {parseFloat(restaurant.longitude).toFixed(6)}
+                              </Typography>
+                              <IconButton 
+                                size="small" 
+                                color="primary"
+                                onClick={() => handleShowMap(restaurant)}
+                                sx={{ mt: 0.5 }}
+                              >
+                                <Map fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          ) : (
+                            <Typography variant="caption" color="text.disabled">
+                              ไม่มีพิกัด
+                            </Typography>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Rating 
                             value={restaurant.rating || 0} 
@@ -351,7 +431,11 @@ export default function RestaurantsPage() {
                         }
                       </TableCell>
                       <TableCell align="center">
-                        <IconButton size="small" color="primary">
+                        <IconButton 
+                          size="small" 
+                          color="primary"
+                          onClick={() => router.push(`/admin/restaurants/${restaurant.id}`)}
+                        >
                           <Visibility />
                         </IconButton>
                         <IconButton size="small" color="primary">
@@ -374,6 +458,114 @@ export default function RestaurantsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Map Dialog */}
+      <Dialog
+        open={mapDialog}
+        onClose={handleCloseMap}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            overflow: 'hidden',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          fontFamily: vristoTheme.font.family,
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Map color="primary" />
+            <Typography variant="h6" sx={{ fontFamily: vristoTheme.font.family }}>
+              ตำแหน่งร้านอาหาร
+            </Typography>
+          </Box>
+          <IconButton onClick={handleCloseMap}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          {selectedRestaurant && (
+            <Box>
+              {/* Restaurant Info */}
+              <Box sx={{ p: 3, borderBottom: '1px solid #e0e0e0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                  <Avatar 
+                    src={selectedRestaurant.image} 
+                    sx={{ width: 50, height: 50 }}
+                  >
+                    <Store />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6" fontWeight="600" sx={{ fontFamily: vristoTheme.font.family }}>
+                      {selectedRestaurant.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {selectedRestaurant.address}
+                    </Typography>
+                  </Box>
+                </Box>
+                
+                {/* Coordinates */}
+                <Box sx={{ display: 'flex', gap: 3 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" fontWeight="600">
+                      Latitude
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                      {selectedRestaurant.latitude ? parseFloat(selectedRestaurant.latitude).toFixed(6) : 'ไม่ระบุ'}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" fontWeight="600">
+                      Longitude
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                      {selectedRestaurant.longitude ? parseFloat(selectedRestaurant.longitude).toFixed(6) : 'ไม่ระบุ'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+              
+              {/* Map */}
+              <Box sx={{ height: 400 }}>
+                {selectedRestaurant.latitude && selectedRestaurant.longitude ? (
+                  <MiniMap
+                    latitude={parseFloat(selectedRestaurant.latitude)}
+                    longitude={parseFloat(selectedRestaurant.longitude)}
+                    address={selectedRestaurant.address}
+                    width="100%"
+                    height="400px"
+                    showCoordinates={false}
+                    showRefresh={false}
+                  />
+                ) : (
+                  <Box sx={{ 
+                    height: '100%', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    bgcolor: '#f5f5f5',
+                    color: 'text.secondary'
+                  }}>
+                    <Typography>ไม่มีข้อมูลพิกัดสำหรับร้านนี้</Typography>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCloseMap} color="primary">
+            ปิด
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 } 

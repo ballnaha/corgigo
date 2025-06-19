@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
+import { 
   Box,
   Typography,
   Card,
-  CardContent,
-  Grid,
+  CardContent, Box, 
   LinearProgress,
   Chip,
   Table,
@@ -18,7 +17,7 @@ import {
   Avatar,
   useTheme,
   useMediaQuery,
-} from '@mui/material';
+ } from '@mui/material';
 import {
   TrendingUp,
   TrendingDown,
@@ -159,8 +158,8 @@ export default function SalesStatsPage() {
       </Typography>
 
       {/* Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+      <Box sx={ display: 'grid', gap: 3, { mb: 4  }>
+        <Box>
           <Card sx={{ 
             p: 3, 
             boxShadow: vristoTheme.shadow.card,
@@ -186,9 +185,9 @@ export default function SalesStatsPage() {
               </Typography>
             </Box>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Box>
           <Card sx={{ 
             p: 3, 
             boxShadow: vristoTheme.shadow.card,
@@ -214,9 +213,9 @@ export default function SalesStatsPage() {
               </Typography>
             </Box>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Box>
           <Card sx={{ 
             p: 3, 
             boxShadow: vristoTheme.shadow.card,
@@ -242,9 +241,9 @@ export default function SalesStatsPage() {
               </Typography>
             </Box>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Box>
           <Card sx={{ 
             p: 3, 
             boxShadow: vristoTheme.shadow.card,
@@ -270,12 +269,12 @@ export default function SalesStatsPage() {
               </Typography>
             </Box>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
-      <Grid container spacing={3}>
+      <Box sx={ display: 'grid', gap: 3 }>
         {/* Top Categories */}
-        <Grid item xs={12} lg={6}>
+        <Box>
           <Card sx={{ boxShadow: vristoTheme.shadow.card, borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight="600" gutterBottom>
@@ -314,10 +313,10 @@ export default function SalesStatsPage() {
               ))}
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Top Restaurants */}
-        <Grid item xs={12} lg={6}>
+        <Box>
           <Card sx={{ boxShadow: vristoTheme.shadow.card, borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight="600" gutterBottom>
@@ -375,8 +374,8 @@ export default function SalesStatsPage() {
               </TableContainer>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Box>
   );
 } 

@@ -34,6 +34,17 @@ export async function GET(request: NextRequest) {
         latitude: true,
         longitude: true,
         status: true,
+        avatarUrl: true,
+        coverUrl: true,
+        approvedAt: true,
+        rejectedAt: true,
+        rejectReason: true,
+        // Name change fields
+        pendingName: true,
+        nameChangeRequestedAt: true,
+        nameApprovedAt: true,
+        nameRejectedAt: true,
+        nameRejectReason: true,
       },
     });
 
@@ -341,26 +352,32 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // อัพเดทข้อมูลร้านอาหาร และเปลี่ยนสถานะเป็น PENDING อีกครั้ง
+    // อัพเดทข้อมูลร้านอาหาร
+    // ถ้าร้านได้รับการอนุมัติแล้ว ไม่ต้องเปลี่ยนสถานะกลับเป็น PENDING
+    const updateData: any = {
+      name: name.trim(),
+      description: description?.trim() || null,
+      address: address.trim(),
+      phone: phone.trim(),
+      openTime: openTime || '09:00',
+      closeTime: closeTime || '21:00',
+      latitude: latitude ? (typeof latitude === 'string' ? parseFloat(latitude) : latitude) : null,
+      longitude: longitude ? (typeof longitude === 'string' ? parseFloat(longitude) : longitude) : null,
+    };
+
+    // เฉพาะร้านที่ยังไม่ได้รับการอนุมัติเท่านั้นที่จะเปลี่ยนสถานะเป็น PENDING
+    if (existingRestaurant.status !== 'APPROVED') {
+      updateData.status = 'PENDING';
+      updateData.approvedAt = null;
+      updateData.approvedBy = null;
+      updateData.rejectedAt = null;
+      updateData.rejectedBy = null;
+      updateData.rejectReason = null;
+    }
+
     const updatedRestaurant = await prisma.restaurant.update({
       where: { userId },
-      data: {
-        name: name.trim(),
-        description: description?.trim() || null,
-        address: address.trim(),
-        phone: phone.trim(),
-        openTime: openTime || '09:00',
-        closeTime: closeTime || '21:00',
-        latitude: latitude ? (typeof latitude === 'string' ? parseFloat(latitude) : latitude) : null,
-        longitude: longitude ? (typeof longitude === 'string' ? parseFloat(longitude) : longitude) : null,
-        status: 'PENDING', // เปลี่ยนสถานะเป็น PENDING อีกครั้ง
-        // รีเซ็ตข้อมูลการอนุมัติ/ปฏิเสธ
-        approvedAt: null,
-        approvedBy: null,
-        rejectedAt: null,
-        rejectedBy: null,
-        rejectReason: null,
-      },
+      data: updateData,
     });
 
     // อัพโหลดไฟล์ใหม่ถ้ามี
@@ -468,9 +485,20 @@ export async function PUT(request: NextRequest) {
       createdAt: file.createdAt.toISOString(),
     }));
 
+    // สร้างข้อความตอบกลับที่เหมาะสมตามสถานะร้าน
+    let message = `อัพเดทข้อมูลร้านอาหารสำเร็จ!`;
+    if (uploadedFiles.length > 0) {
+      message += ` อัพโหลดไฟล์เพิ่มเติม ${uploadedFiles.length} ไฟล์`;
+    }
+    
+    // ถ้าร้านยังไม่ได้รับการอนุมัติ ให้แจ้งว่ากำลังตรวจสอบ
+    if (existingRestaurant.status !== 'APPROVED') {
+      message += ` เรากำลังตรวจสอบข้อมูลใหม่ของคุณ`;
+    }
+
     return NextResponse.json({
       success: true,
-      message: `อัพเดทข้อมูลร้านอาหารสำเร็จ! ${uploadedFiles.length > 0 ? `อัพโหลดไฟล์เพิ่มเติม ${uploadedFiles.length} ไฟล์ ` : ''}เรากำลังตรวจสอบข้อมูลใหม่ของคุณ`,
+      message,
       restaurant: {
         id: updatedRestaurant.id,
         name: updatedRestaurant.name,

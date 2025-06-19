@@ -76,6 +76,7 @@ interface RestaurantSidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
   pathname: string;
+  restaurantName?: string;
   badgeCounts?: {
     pendingOrders: number;
     lowStock: number;
@@ -157,7 +158,7 @@ const menuItems = [
   },
 ];
 
-export default function RestaurantSidebar({ mobileOpen, onMobileClose, pathname, badgeCounts }: RestaurantSidebarProps) {
+export default function RestaurantSidebar({ mobileOpen, onMobileClose, pathname, restaurantName, badgeCounts }: RestaurantSidebarProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const router = useRouter();
@@ -227,7 +228,7 @@ export default function RestaurantSidebar({ mobileOpen, onMobileClose, pathname,
               fontFamily: vristoTheme.font.family,
             }}
           >
-            CorgiGo
+            {restaurantName || 'CorgiGo'}
           </Typography>
         </Box>
         <Typography 
@@ -237,7 +238,7 @@ export default function RestaurantSidebar({ mobileOpen, onMobileClose, pathname,
             fontFamily: vristoTheme.font.family,
           }}
         >
-          ระบบจัดการร้านอาหาร
+          {restaurantName ? 'ระบบจัดการร้านอาหาร' : 'ระบบจัดการร้านอาหาร'}
         </Typography>
       </Box>
 

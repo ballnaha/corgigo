@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, description, price, categoryId, image, isAvailable = true } = body;
+    const { name, description, price, originalPrice, categoryId, image, isAvailable = true } = body;
 
     // Validation
     if (!name || !description || !price) {
@@ -160,6 +160,7 @@ export async function POST(request: NextRequest) {
         name,
         description,
         price: parseFloat(price),
+        originalPrice: originalPrice ? parseFloat(originalPrice) : null,
         categoryId: categoryId || null,
         image: image || null,
         isAvailable,

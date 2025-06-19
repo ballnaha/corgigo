@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Grid,
+import { 
+  Box, Box, 
   Card,
   CardContent,
   Typography,
@@ -27,7 +26,7 @@ import {
   Avatar,
   useMediaQuery,
   useTheme,
-} from '@mui/material';
+ } from '@mui/material';
 import {
   Schedule,
   CheckCircle,

@@ -1,19 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
+import { 
   Box,
   Typography,
   Card,
-  CardContent,
-  Grid,
+  CardContent, Box, 
   LinearProgress,
   Chip,
   Avatar,
   useTheme,
   useMediaQuery,
   Stack,
-} from '@mui/material';
+ } from '@mui/material';
 import {
   TrendingUp,
   TrendingDown,
@@ -131,17 +130,17 @@ export default function TrendsPage() {
         แนวโน้มและการวิเคราะห์
       </Typography>
 
-      <Grid container spacing={3}>
+      <Box sx={ display: 'grid', gap: 3 }>
         {/* Customer Behavior Summary */}
-        <Grid item xs={12}>
+        <Box>
           <Card sx={{ boxShadow: vristoTheme.shadow.card, borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight="600" gutterBottom>
                 พฤติกรรมลูกค้า
               </Typography>
               
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6} md={3}>
+              <Box sx={ display: 'grid', gap: 3 }>
+                <Box>
                   <Card variant="outlined" sx={{ p: 2, textAlign: 'center', height: '100%' }}>
                     <Avatar sx={{ bgcolor: vristoTheme.primary, mx: 'auto', mb: 1 }}>
                       <ShoppingCart />
@@ -159,9 +158,9 @@ export default function TrendsPage() {
                       size="small"
                     />
                   </Card>
-                </Grid>
+                </Box>
 
-                <Grid item xs={12} sm={6} md={3}>
+                <Box>
                   <Card variant="outlined" sx={{ p: 2, textAlign: 'center', height: '100%' }}>
                     <Avatar sx={{ bgcolor: vristoTheme.success, mx: 'auto', mb: 1 }}>
                       <People />
@@ -179,9 +178,9 @@ export default function TrendsPage() {
                       size="small"
                     />
                   </Card>
-                </Grid>
+                </Box>
 
-                <Grid item xs={12} sm={6} md={3}>
+                <Box>
                   <Card variant="outlined" sx={{ p: 2, textAlign: 'center', height: '100%' }}>
                     <Avatar sx={{ bgcolor: vristoTheme.warning, mx: 'auto', mb: 1 }}>
                       <People />
@@ -199,9 +198,9 @@ export default function TrendsPage() {
                       size="small"
                     />
                   </Card>
-                </Grid>
+                </Box>
 
-                <Grid item xs={12} sm={6} md={3}>
+                <Box>
                   <Card variant="outlined" sx={{ p: 2, textAlign: 'center', height: '100%' }}>
                     <Avatar sx={{ bgcolor: vristoTheme.info, mx: 'auto', mb: 1 }}>
                       <Star />
@@ -219,14 +218,14 @@ export default function TrendsPage() {
                       size="small"
                     />
                   </Card>
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Peak Hours */}
-        <Grid item xs={12} lg={6}>
+        <Box>
           <Card sx={{ boxShadow: vristoTheme.shadow.card, borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight="600" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -263,10 +262,10 @@ export default function TrendsPage() {
               ))}
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Top Categories Growth */}
-        <Grid item xs={12} lg={6}>
+        <Box>
           <Card sx={{ boxShadow: vristoTheme.shadow.card, borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight="600" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -302,10 +301,10 @@ export default function TrendsPage() {
               </Stack>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Rising Restaurants */}
-        <Grid item xs={12} lg={6}>
+        <Box>
           <Card sx={{ boxShadow: vristoTheme.shadow.card, borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight="600" gutterBottom>
@@ -349,10 +348,10 @@ export default function TrendsPage() {
               </Stack>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Popular Promotions */}
-        <Grid item xs={12} lg={6}>
+        <Box>
           <Card sx={{ boxShadow: vristoTheme.shadow.card, borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight="600" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -388,19 +387,19 @@ export default function TrendsPage() {
               </Stack>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Seasonal Distribution */}
-        <Grid item xs={12}>
+        <Box>
           <Card sx={{ boxShadow: vristoTheme.shadow.card, borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight="600" gutterBottom>
                 การกระจายของออเดอร์ตามช่วงเวลา
               </Typography>
               
-              <Grid container spacing={3}>
+              <Box sx={ display: 'grid', gap: 3 }>
                 {trendsData.seasonalTrends?.map((trend: any, index: number) => (
-                  <Grid item xs={12} sm={6} md={3} key={index}>
+                  <Box>
                     <Card variant="outlined" sx={{ p: 2, textAlign: 'center', height: '100%' }}>
                       <Typography variant="h4" fontWeight="700" sx={{ color: trend.color }}>
                         {trend.percentage}%
@@ -423,13 +422,13 @@ export default function TrendsPage() {
                         }}
                       />
                     </Card>
-                  </Grid>
+                  </Box>
                 ))}
-              </Grid>
+              </Box>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Box>
   );
 } 
